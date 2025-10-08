@@ -1,6 +1,7 @@
 import { statCards } from '@/data/StatCardData'
 import React from 'react'
 import StatCard from '../ui/StatChard'
+import SupportTable from './SupportTable'
 
 function Support() {
   return (
@@ -9,6 +10,9 @@ function Support() {
         {statCards.map((card, index) => (
           <StatCard key={index} {...card} />
         ))}
+      </div>
+      <div>
+        <SupportTable/>
       </div>
     </div>
   )

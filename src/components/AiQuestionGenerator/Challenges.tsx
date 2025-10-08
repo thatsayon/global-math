@@ -170,7 +170,7 @@ function Challenges() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [openDatePicker, setOpenDatePicker] = useState<string | null>(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 8;
 
   // Get unique subjects
   const subjects = ["all", ...Array.from(new Set(challenges.map(c => c.subject)))];
@@ -224,7 +224,7 @@ function Challenges() {
   };
 
   return (
-    <div className="mt-4 md:mt-6 lg:mt-8">
+    <div className="">
       <div>
         <Card>
           <CardHeader>
@@ -279,11 +279,13 @@ function Challenges() {
                         <TableCell>
                           <Badge 
                             variant={challenge.status === "Published" ? "default" : "secondary"}
-                            className={
-                              challenge.status === "Published" 
-                                ? "bg-green-500 hover:bg-green-600" 
-                                : "bg-orange-500 hover:bg-orange-600"
-                            }
+                            className={`rounded-full px-3 py-1.5
+                              ${
+                                challenge.status === "Published" 
+                                ? "bg-[#ADF8C8] text-[#0E970E] hover:bg-green-600" 
+                                : "bg-[#F59E0B] text-white hover:bg-orange-400"
+                              }
+                            `}
                           >
                             {challenge.status}
                           </Badge>

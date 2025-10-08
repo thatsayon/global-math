@@ -1,6 +1,7 @@
 import { statCards } from '@/data/StatCardData'
 import React from 'react'
 import StatCard from '../ui/StatChard'
+import RankingTable from './RankingTable'
 
 function Ranking() {
   return (
@@ -9,6 +10,9 @@ function Ranking() {
         {statCards.map((card, index) => (
           <StatCard key={index} {...card} />
         ))}
+      </div>
+      <div>
+        <RankingTable/>
       </div>
     </div>
   )

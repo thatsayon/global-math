@@ -30,7 +30,7 @@ import { moderationData } from '@/data/Moderation';
 const ModerationTable = () => {
   const [userType, setUserType] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 7;
+  const itemsPerPage = 8;
 
   // Get initials from name
   const getInitials = (name: string) => {
@@ -104,7 +104,7 @@ const ModerationTable = () => {
         </h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <Select value={userType} onValueChange={setUserType}>
-            <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px] bg-white">
               <SelectValue placeholder="Select user type" />
             </SelectTrigger>
             <SelectContent>
@@ -163,7 +163,7 @@ const ModerationTable = () => {
       {/* Mobile Card View */}
       <div className="md:hidden space-y-4">
         {paginatedData.map((record) => (
-          <div key={record.id} className="border rounded-lg p-4 space-y-3">
+          <div key={record.id} className="bg-white border rounded-lg p-4 space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">

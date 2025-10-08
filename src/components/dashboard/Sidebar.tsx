@@ -63,7 +63,7 @@ const Sidebar = ({
       {/* Sidebar */}
       <aside
         className={`
-          fixed rounded-2xl lg:top-6 lg:relative top-0 left-0 h-screen lg:h-[calc(100vh-6.5rem)]
+          fixed rounded-r-2xl lg:top-6 lg:relative top-0 left-0 h-screen lg:h-[calc(100vh-6.5rem)]
           bg-white border-r border-gray-200 w-72
           z-50 lg:z-0
           transition-transform duration-300 ease-in-out
