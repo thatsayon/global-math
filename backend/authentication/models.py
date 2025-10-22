@@ -3,9 +3,10 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-import uuid
 from django.conf import settings
 
+from cloudinary.models import CloudinaryField
+import uuid
 
 class CustomAccountManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -31,13 +32,23 @@ class CustomAccountManager(BaseUserManager):
 
 
 class UserAccount(AbstractBaseUser, PermissionsMixin):
+    LANGUAGE_CHOICES = [
+        ('en', _('English')),
+        ('es', _('Spanish')),
+        ('fr', _('French')),
+        ('de', _('German')),
+        ('zh', _('Chinese')),
+        ('ja', _('Japanese')),
+        ('he', _('Hebrew')),
+    ]
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     email = models.EmailField(_("email address"), unique=True)
     username = models.CharField(_("username"), max_length=30, unique=True)
 
-    frist_name = models.CharField(_("first name"), max_length=50)
+    first_name = models.CharField(_("first name"), max_length=50)
     last_name = models.CharField(_("last name"), max_length=50)
+    profile_pic = CloudinaryField(_("profile pic"), blank=True, null=True)
     gender = models.CharField(_("gender"), choices=[
         ('male', 'Male'),
         ('female', 'Female')
@@ -46,6 +57,12 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
         ('student', 'Student'),
         ('teacher', 'Teacher')
     ])
+    language = models.CharField(
+        _("language"),
+        max_length=10,
+        choices=LANGUAGE_CHOICES,
+        default='en',
+    )
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
@@ -67,7 +84,7 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     )
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username", "full_name"]
+    REQUIRED_FIELDS = ["username"]
 
     objects = CustomAccountManager()
 
