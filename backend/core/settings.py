@@ -42,7 +42,9 @@ INSTALLED_APPS = [
 
 # local app
 INSTALLED_APPS += [
-    'authentication'
+    'authentication',
+    'account',
+    'post'
 ]
 
 MIDDLEWARE = [
