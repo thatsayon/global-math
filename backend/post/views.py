@@ -13,9 +13,13 @@ class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        serializer = PostSerializer(data=request.data)
+        serializer = PostSerializer(
+            data=request.data, 
+            context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(
-            {"msg": "working"},
+            {"msg": "post saved successfully"},
             status=status.HTTP_200_OK
         )
