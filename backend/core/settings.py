@@ -44,7 +44,8 @@ INSTALLED_APPS = [
 INSTALLED_APPS += [
     'authentication',
     'account',
-    'post'
+    'post',
+    'classroom'
 ]
 
 MIDDLEWARE = [
