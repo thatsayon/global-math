@@ -6,7 +6,7 @@ from PIL import Image
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from .utils import process_math_problem, extract_text_from_genai_response, classification_model
 
@@ -124,15 +124,28 @@ def solve_image_with_prompt(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@parser_classes([FormParser])
+@parser_classes([JSONParser, MultiPartParser])
 def solve_image_url(request):
     url = request.data.get('url')
     if not url or not str(url).strip():
         return JsonResponse({"detail": "Field 'url' is required."}, status=400)
+
     try:
-        r = requests.get(url)
+        r = requests.get(url, timeout=10)
         r.raise_for_status()
-        image = Image.open(io.BytesIO(r.content))
+
+        # Check if the URL actually points to an image
+        content_type = r.headers.get("Content-Type", "")
+        if not content_type.startswith("image/"):
+            return JsonResponse({"detail": "URL does not point to a valid image."}, status=400)
+
+        # Open image safely
+        try:
+            image = Image.open(io.BytesIO(r.content)).convert("RGB")
+        except UnidentifiedImageError:
+            return JsonResponse({"detail": "Cannot identify image file from the URL."}, status=400)
+
+        # Prepare prompt for math solver
         prompt = """
         Extract and solve the math problem from this image. Provide a clear, step-by-step solution in natural language.
         Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
@@ -140,8 +153,13 @@ def solve_image_url(request):
 
         Format your response with clear steps and a final answer.
         """
+
+        # Call your existing function to process the math problem
         solution = process_math_problem(prompt, image)
         return JsonResponse({"solution": solution})
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"detail": f"Error fetching image from URL: {str(e)}"}, status=400)
     except Exception as e:
         return JsonResponse({"detail": f"Error processing image URL: {str(e)}"}, status=500)
 
@@ -251,7 +269,7 @@ If you cannot determine the final answer, return "UNCLEAR".
 
 @csrf_exempt
 @api_view(['POST'])
-@parser_classes([FormParser])
+@parser_classes([MultiPartParser, FormParser])
 def classify_message(request):
     message = request.data.get('message')
     if not message or not str(message).strip():
@@ -296,7 +314,7 @@ MAX_QUESTIONS = 20
 
 @csrf_exempt
 @api_view(['POST'])
-@parser_classes([FormParser])
+@parser_classes([FormParser, MultiPartParser])
 def generate_math_question(request):
     grade = request.data.get('grade')
     subject = request.data.get('subject')
