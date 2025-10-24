@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from .utils import process_math_problem, extract_text_from_genai_response, classification_model
+import logging
 
 # Root: serve static/index.html if present, otherwise simple redirect-style HTML
 @api_view(['GET'])
@@ -30,28 +31,116 @@ def root(request):
         """
         return HttpResponse(html, content_type='text/html')
 
+# @csrf_exempt
+# @api_view(['POST'])
+# @parser_classes([FormParser, MultiPartParser])
+# def solve_text_problem(request):
+#     problem = request.data.get('problem')
+#     if not problem or not str(problem).strip():
+#         return JsonResponse({"detail": "Field 'problem' is required."}, status=400)
+#     prompt = f"""
+#     Solve the following math problem. Provide a clear, step-by-step solution in natural language.
+#     Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
+#     Avoid markdown formatting except for LaTeX.
+
+#     Problem: {problem}
+
+#     Format your response with clear steps and a final answer.
+#     """
+#     try:
+#         solution = process_math_problem(prompt)
+#         return JsonResponse({"problem": problem, "solution": solution})
+#     except Exception as e:
+#         return JsonResponse({"detail": str(e)}, status=500)
+
+
+logger = logging.getLogger(__name__)
+
 @csrf_exempt
 @api_view(['POST'])
 @parser_classes([FormParser, MultiPartParser])
 def solve_text_problem(request):
     problem = request.data.get('problem')
+    
     if not problem or not str(problem).strip():
+        # This is a client-side error (missing input)
         return JsonResponse({"detail": "Field 'problem' is required."}, status=400)
+    
+    # --- MODIFIED PROMPT to include failure keywords ---
     prompt = f"""
-    Solve the following math problem. Provide a clear, step-by-step solution in natural language.
-    Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
-    Avoid markdown formatting except for LaTeX.
+Solve the following math problem. Provide a clear, step-by-step solution in natural language.
 
-    Problem: {problem}
+**IMPORTANT RULES:**
+1.  If the input **is not a math problem** (e.g., it's a random sentence, a name, or non-math content), you must return only the word "NULL".
+2.  If the input **is a math problem, but you cannot understand it** (e.g., it's ambiguous, ill-posed, or contains undefined variables) or **you cannot solve it** (e.g., it's too complex or requires external data), you must return only the word "UNSOLVABLE".
+3.  If a math problem IS present and you CAN solve it, provide a clear, step-by-step solution. Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations). Avoid markdown formatting except for LaTeX.
 
-    Format your response with clear steps and a final answer.
-    """
+Problem: {problem}
+"""
     try:
+        # Call your existing processing function (assuming it takes only the prompt)
         solution = process_math_problem(prompt)
-        return JsonResponse({"problem": problem, "solution": solution})
-    except Exception as e:
-        return JsonResponse({"detail": str(e)}, status=500)
 
+        # --- NEW LOGIC START ---
+        
+        # Check for None or empty string first
+        if not solution or not solution.strip():
+            logger.warning("AI returned an empty or None response.")
+            # Status 1 for system/data failure
+            return JsonResponse({"status": 1})
+
+        # Clean the response for reliable checking
+        solution_clean = solution.strip().upper()
+
+        if solution_clean == "NULL":
+            # Status 1: Not a math problem
+            return JsonResponse({"status": 1})
+        
+        elif solution_clean == "UNSOLVABLE":
+            # Status 2: Math problem found but could not be solved/understood
+            return JsonResponse({
+                "status": 2, 
+                "message": "I am unable to understand the math question or provide a solution."
+            })
+            
+        else:
+            # Status 0: Success
+            return JsonResponse({"status": 0, "solution": solution.strip()})
+        
+        # --- NEW LOGIC END ---
+
+    except Exception as e:
+        # Status 1 for system error
+        logger.error(f"Error processing text math problem: {str(e)}")
+        return JsonResponse({"status": 1})
+
+
+
+
+
+# @csrf_exempt
+# @api_view(['POST'])
+# @parser_classes([MultiPartParser, FormParser])
+# def solve_image_problem(request):
+#     file = request.FILES.get('file')
+#     if file is None or not file.content_type.startswith('image/'):
+#         return JsonResponse({"detail": "File must be an image"}, status=400)
+#     try:
+#         image_data = file.read()
+#         prompt = """
+#         Extract and solve the math problem from this image. Provide a clear, step-by-step solution in natural language.
+#         Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
+#         Avoid markdown formatting except for LaTeX.
+
+#         Format your response with clear steps and a final answer.
+#         """
+#         img = Image.open(io.BytesIO(image_data))
+#         solution = process_math_problem(prompt, img)
+#         return JsonResponse({"solution": solution})
+#     except Exception as e:
+#         return JsonResponse({"detail": str(e)}, status=500)
+
+logger = logging.getLogger(__name__)
 @csrf_exempt
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
@@ -59,29 +148,156 @@ def solve_image_problem(request):
     file = request.FILES.get('file')
     if file is None or not file.content_type.startswith('image/'):
         return JsonResponse({"detail": "File must be an image"}, status=400)
+
     try:
         image_data = file.read()
+        
+        # --- PROMPT (Remains the same for the AI to return the correct keywords) ---
         prompt = """
-        Extract and solve the math problem from this image. Provide a clear, step-by-step solution in natural language.
-        Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
-        Avoid markdown formatting except for LaTeX.
+Extract and solve the math problem from this image.
 
-        Format your response with clear steps and a final answer.
+**IMPORTANT RULES:**
+1.  If the image **does not contain any math problem** (e.g., it's a picture
+    of food, people, objects), you must return only the word "NULL".
+2.  If the image **contains a math problem, but you cannot understand it** (e.g., it's too blurry, badly handwritten) or **you cannot solve it**
+    (e.g., it's too complex, ambiguous, or lacks information), you
+    must return only the word "UNSOLVABLE".
+3.  If a math problem IS present and you CAN solve it, provide a clear,
+    step-by-step solution in natural language. Use LaTeX formatting
+    (enclose in $ for inline and $$ for display equations).
+    Avoid markdown formatting except for LaTeX.
         """
         img = Image.open(io.BytesIO(image_data))
+        
+        # Call your existing processing function
         solution = process_math_problem(prompt, img)
-        return JsonResponse({"solution": solution})
+
+        # --- UPDATED LOGIC ---
+        
+        # Check for None or empty string first
+        if not solution or not solution.strip():
+            logger.warning("AI returned an empty or None response.")
+            # Status 1 for system/data failure
+            return JsonResponse({"status": 1})
+
+        # Clean the response for reliable checking
+        solution_clean = solution.strip().upper()
+
+        if solution_clean == "NULL":
+            # Status 1: No math problem found
+            return JsonResponse({"status": 1})
+        
+        elif solution_clean == "UNSOLVABLE":
+            # Status 2: Math problem found but could not be solved/understood
+            # Providing the simple response here
+            return JsonResponse({
+                "status": 2, 
+                "message": "I am unable to understand the math question or provide a solution."
+            })
+            
+        else:
+            # Status 0: Success
+            return JsonResponse({"status": 0, "solution": solution.strip()})
+        
+        # --- END UPDATED LOGIC ---
+
     except Exception as e:
-        return JsonResponse({"detail": str(e)}, status=500)
+        # Status 1 for system error
+        logger.error(f"Error processing math image: {str(e)}")
+        return JsonResponse({"status": 1})
+
+
+
+
+
+# @csrf_exempt
+# @api_view(['POST'])
+# @parser_classes([MultiPartParser, FormParser])
+# def solve_image_with_prompt(request):
+#     file = request.FILES.get('file')
+#     prompt = request.data.get('prompt')
+
+#     if file is None and (prompt is None or str(prompt).strip() == ""):
+#         return JsonResponse({"detail": "Provide an image file, a text prompt, or both."}, status=400)
+
+#     try:
+#         img = None
+#         if file is not None:
+#             if not file.content_type.startswith('image/'):
+#                 return JsonResponse({"detail": "File must be an image"}, status=400)
+#             image_bytes = file.read()
+#             try:
+#                 img = Image.open(io.BytesIO(image_bytes))
+#             except Exception:
+#                 return JsonResponse({"detail": "Could not open image. Ensure it's a valid image file."}, status=400)
+
+#         if not prompt or str(prompt).strip() == "":
+#             prompt = """
+#             Extract and solve the math problem from this image. Provide a clear, step-by-step solution in natural language.
+#             Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
+#             Avoid markdown formatting except for LaTeX.
+
+#             Format your response with clear steps and a final answer.
+#             """
+
+#         solution = process_math_problem(prompt, img) if img is not None else process_math_problem(prompt)
+
+#         response_content = {
+#             "solution": solution,
+#             "input": {
+#                 "provided_image": bool(img),
+#                 "provided_prompt": bool(prompt and str(prompt).strip() != "")
+#             }
+#         }
+#         if file is not None:
+#             response_content["input"]["image_filename"] = file.name
+#         if prompt is not None:
+#             response_content["user_prompt"] = prompt
+
+#         return JsonResponse(response_content)
+#     except Exception as e:
+#         return JsonResponse({"detail": str(e)}, status=500)
+    
+
+# solve_image_with_prompt with 3-status logic
+
+
+logger = logging.getLogger(__name__)
+
+FAILURE_NULL = "NULL"
+FAILURE_UNSOLVABLE = "UNSOLVABLE"
+
+CORE_MATH_PROMPT_TEMPLATE = """
+Solve the following math problem. Provide a clear, step-by-step solution in natural language.
+
+**PROBLEM INPUT:**
+{problem_content}
+
+**INSTRUCTION RULES:**
+1.  Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
+2.  Avoid markdown formatting except for LaTeX.
+
+**FAILURE RULES (For System Status):**
+1.  If the input (text or image) **does not contain any math problem**, you must return **only** the word "{failure_null}".
+2.  If the input **contains a math problem, but you cannot understand it** (e.g., too blurry, ambiguous) or **you cannot solve it** (e.g., too complex, lacks data), you must return **only** the word "{failure_unsolvable}".
+3.  Otherwise, provide the solution.
+"""
+
+# =========================================================================
 
 @csrf_exempt
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
 def solve_image_with_prompt(request):
-    file = request.FILES.get('file')
-    prompt = request.data.get('prompt')
+    """Handles combined image and optional text prompt solving with 3-status logic."""
+    
+    # NOTE: The function process_math_problem must be defined and imported elsewhere.
+    # It must be callable as: process_math_problem(prompt, img) or process_math_problem(prompt)
 
-    if file is None and (prompt is None or str(prompt).strip() == ""):
+    file = request.FILES.get('file')
+    user_prompt = request.data.get('prompt')
+
+    if file is None and (user_prompt is None or str(user_prompt).strip() == ""):
         return JsonResponse({"detail": "Provide an image file, a text prompt, or both."}, status=400)
 
     try:
@@ -95,32 +311,76 @@ def solve_image_with_prompt(request):
             except Exception:
                 return JsonResponse({"detail": "Could not open image. Ensure it's a valid image file."}, status=400)
 
-        if not prompt or str(prompt).strip() == "":
-            prompt = """
-            Extract and solve the math problem from this image. Provide a clear, step-by-step solution in natural language.
-            Use LaTeX formatting for mathematical expressions (enclose in $ for inline and $$ for display equations).
-            Avoid markdown formatting except for LaTeX.
+        # 1. Determine problem description for the unified prompt
+        if img and user_prompt and str(user_prompt).strip() != "":
+            problem_description = f"Solve the problem based on the provided image and this clarifying text: {user_prompt}"
+        elif img:
+            problem_description = "The math problem is contained within the uploaded image."
+        elif user_prompt and str(user_prompt).strip() != "":
+            problem_description = f"The problem text is: {user_prompt}"
+        else:
+            problem_description = "Solve the provided problem."
+        
+        # Format the core prompt with the specific problem content and failure keywords
+        final_prompt = CORE_MATH_PROMPT_TEMPLATE.format(
+            problem_content=problem_description,
+            failure_null=FAILURE_NULL,
+            failure_unsolvable=FAILURE_UNSOLVABLE
+        )
 
-            Format your response with clear steps and a final answer.
-            """
+        # 2. Process the problem
+        solution = process_math_problem(final_prompt, img) if img is not None else process_math_problem(final_prompt)
+        
+        # 3. Check status and prepare full response (Logic moved inside this function)
+        
+        # Initialize response dictionary
+        response_content = {} 
+        
+        # Check for None or empty string first (System failure)
+        if not solution or not solution.strip():
+            logger.warning("AI returned an empty or None response.")
+            response_content["status"] = 1
+        else:
+            solution_clean = solution.strip().upper()
+            
+            if solution_clean == FAILURE_NULL:
+                response_content["status"] = 1
+                
+            elif solution_clean == FAILURE_UNSOLVABLE:
+                response_content.update({
+                    "status": 2, 
+                    "message": "I am unable to understand the math question or provide a solution."
+                })
+                
+            else:
+                response_content.update({
+                    "status": 0,
+                    "solution": solution.strip()
+                })
 
-        solution = process_math_problem(prompt, img) if img is not None else process_math_problem(prompt)
-
-        response_content = {
-            "solution": solution,
-            "input": {
-                "provided_image": bool(img),
-                "provided_prompt": bool(prompt and str(prompt).strip() != "")
-            }
+        # Add input metadata regardless of status
+        response_content["input"] = {
+            "provided_image": bool(img),
+            "provided_prompt": bool(user_prompt and str(user_prompt).strip() != "")
         }
         if file is not None:
             response_content["input"]["image_filename"] = file.name
-        if prompt is not None:
-            response_content["user_prompt"] = prompt
-
+        if user_prompt is not None:
+            response_content["user_prompt"] = str(user_prompt).strip()
+            
         return JsonResponse(response_content)
+
     except Exception as e:
-        return JsonResponse({"detail": str(e)}, status=500)
+        logger.error(f"Error in solve_image_with_prompt: {str(e)}")
+        # System-level error defaults to status 1
+        return JsonResponse({"status": 1, "detail": str(e)})
+
+
+
+
+
+
+
 
 @csrf_exempt
 @api_view(['POST'])
