@@ -631,6 +631,98 @@ Format your response with numbered steps if necessary and conclude with a final 
     
 
 
+# 1st function for checking the solution provided by the user in the project.
+# @csrf_exempt
+# @api_view(['POST'])
+# @parser_classes([JSONParser, FormParser])
+# def check_solution(request):
+#     from .utils import process_math_problem_from_url, process_math_problem
+
+#     problem_text = request.data.get('problem_text')
+#     solution_text = request.data.get('solution_text')
+#     problem_url = request.data.get('problem_url')
+#     solution_url = request.data.get('solution_url')
+
+#     if (not problem_text or not str(problem_text).strip()) and not problem_url:
+#         return JsonResponse({"detail": "Provide the problem as text or an image URL."}, status=400)
+#     if (not solution_text or not str(solution_text).strip()) and not solution_url:
+#         return JsonResponse({"detail": "Provide the solution as text or an image URL."}, status=400)
+
+#     try:
+#         # -----------------------------
+#         # 1) Canonical correct solution
+#         # -----------------------------
+#         problem_prompt = "Solve the following math problem. Provide only the final answer in its simplest form.\nUse LaTeX formatting if appropriate. Do not include any explanations or steps.\n\n"
+#         if problem_text and str(problem_text).strip():
+#             problem_prompt += f"Problem (text): {str(problem_text).strip()}\n\n"
+#         problem_prompt += "Final answer only:"
+
+#         if problem_url:
+#             correct_solution = process_math_problem_from_url(problem_url, problem_prompt)
+#         else:
+#             correct_solution = process_math_problem(problem_prompt)
+#         correct_solution = (correct_solution or "").strip()
+
+#         # -----------------------------
+#         # 2) Compare user's solution
+#         # -----------------------------
+#         check_prompt_base = f"""
+# Extract the final answer from the provided solution (either text or image). Then compare it with the correct answer: {correct_solution}
+
+# Return ONLY a single word: CORRECT (if the answers match, considering equivalent formats like fractions vs decimals) or INCORRECT (if they don't match).
+# If you cannot determine, return INCORRECT.
+# Do not include any explanations.
+# """
+#         if solution_text and str(solution_text).strip():
+#             check_prompt_base = f"Solution (text): {str(solution_text).strip()}\n\n" + check_prompt_base
+
+#         if solution_url:
+#             raw_result = process_math_problem_from_url(solution_url, check_prompt_base)
+#         else:
+#             raw_result = process_math_problem(check_prompt_base)
+#         raw_result = (raw_result or "").strip()
+
+#         m = re.search(r'\b(CORRECT|INCORRECT)\b', raw_result, re.IGNORECASE)
+#         if m:
+#             verdict = m.group(1).upper()
+#             comparison = 0 if verdict == "CORRECT" else 1
+#         else:
+#             comparison = 1
+
+#         # -----------------------------
+#         # 3) Extract final answer from user's solution
+#         # -----------------------------
+#         extract_prompt = """
+# Extract the final answer from the provided solution. Return only the answer (use LaTeX if appropriate).
+# If you cannot determine the final answer, return "UNCLEAR".
+# """
+#         if solution_text and str(solution_text).strip():
+#             extract_prompt = f"Solution (text): {str(solution_text).strip()}\n\n" + extract_prompt
+
+#         if solution_url:
+#             extracted_raw = process_math_problem_from_url(solution_url, extract_prompt)
+#         else:
+#             extracted_raw = process_math_problem(extract_prompt)
+
+#         extracted_solution = (extracted_raw or "").strip()
+
+#         return JsonResponse({
+#             "status": comparison,
+#             "correct_solution": correct_solution,
+#             "extracted_solution": extracted_solution,
+#             "raw_result": raw_result,
+#             "inputs": {
+#                 "problem_text_provided": bool(problem_text and str(problem_text).strip()),
+#                 "problem_url_provided": bool(problem_url),
+#                 "solution_text_provided": bool(solution_text and str(solution_text).strip()),
+#                 "solution_url_provided": bool(solution_url),
+#             }
+#         })
+#     except Exception as e:
+#         return JsonResponse({"detail": str(e)}, status=500)
+
+
+
 # Latest function for checking the solution provided by the user in the project
 @csrf_exempt
 @api_view(['POST'])
@@ -707,7 +799,7 @@ If you cannot determine the final answer, return "UNCLEAR".
         extracted_solution = (extracted_raw or "").strip()
 
         return JsonResponse({
-            "comparison": comparison,
+            "status": comparison,
             "correct_solution": correct_solution,
             "extracted_solution": extracted_solution,
             "raw_result": raw_result,
@@ -720,7 +812,6 @@ If you cannot determine the final answer, return "UNCLEAR".
         })
     except Exception as e:
         return JsonResponse({"detail": str(e)}, status=500)
-
 
 
 
