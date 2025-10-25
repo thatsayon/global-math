@@ -23,3 +23,12 @@ class PostCreateView(APIView):
             {"msg": "post saved successfully"},
             status=status.HTTP_200_OK
         )
+
+class PostListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(
+            {"msg": "working"},
+            status=status.HTTP_200_OK
+        )
