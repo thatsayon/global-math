@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
 from cloudinary.models import CloudinaryField
@@ -65,3 +66,118 @@ class PostModel(models.Model):
 
     def __str__(self):
         return f"Post by {self.user} in {self.classroom} (Level {self.post_level})"
+
+class PostReaction(models.Model):
+    REACTION_CHOICES = [
+        ('like', 'Like'),
+        ('dislike', 'Dislike'),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True, 
+        default=uuid.uuid4, 
+        editable=False
+    )
+    post = models.ForeignKey(
+        PostModel, 
+        on_delete=models.CASCADE, 
+        related_name='reactions'
+    )
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='post_reactions'
+    )
+    reaction = models.CharField(
+        max_length=10, 
+        choices=REACTION_CHOICES
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('post', 'user')  
+        verbose_name = "Post Reaction"
+        verbose_name_plural = "Post Reactions"
+
+    def __str__(self):
+        return f"{self.user.username} {self.reaction}d {self.post.id}"
+
+class CommentModel(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    post = models.ForeignKey(
+        PostModel,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comments"
+    )
+    text = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Comment text (optional if image/video present)"
+    )
+    image = CloudinaryField(
+        "comment_image",
+        blank=True,
+        null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Comment"
+        verbose_name_plural = "Comments"
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.post}"
+
+    def clean(self):
+        # Ensure at least one field is filled (text, image, or video)
+        if not self.text and not self.image and not self.video:
+            raise ValidationError("A comment must contain text, an image, or a video.")
+
+
+class CommentReaction(models.Model):
+    REACTION_CHOICES = [
+        ('like', 'Like'),
+        ('dislike', 'Dislike'),
+    ]
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    comment = models.ForeignKey(
+        CommentModel,
+        on_delete=models.CASCADE,
+        related_name='reactions'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='comment_reactions'
+    )
+    reaction = models.CharField(
+        max_length=10,
+        choices=REACTION_CHOICES
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('comment', 'user')
+        verbose_name = "Comment Reaction"
+        verbose_name_plural = "Comment Reactions"
+
+    def __str__(self):
+        return f"{self.user.username} {self.reaction}d comment {self.comment.id}"
