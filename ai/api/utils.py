@@ -17,7 +17,7 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Base models
-text_model = genai.GenerativeModel('gemini-2.5-pro')
+text_model = genai.GenerativeModel('gemini-2.0-flash')
 
 # Deterministic config for classification
 classification_generation_config = genai.types.GenerationConfig(
@@ -26,7 +26,7 @@ classification_generation_config = genai.types.GenerationConfig(
 )
 
 classification_model = genai.GenerativeModel(
-    'gemini-2.5-pro',
+    'gemini-2.0-flash',
     generation_config=classification_generation_config
 )
 
@@ -43,7 +43,7 @@ def process_math_problem(prompt: str, image_data=None) -> str:
                 img = image_data
             else:
                 img = image_data  # attempt to pass-through (SDK may handle)
-            vision_model = genai.GenerativeModel('gemini-2.5-pro')
+            vision_model = genai.GenerativeModel('gemini-2.0-flash')
             response = vision_model.generate_content([prompt, img])
         else:
             response = text_model.generate_content(prompt)
@@ -115,3 +115,30 @@ def extract_text_from_genai_response(res) -> str:
     except Exception:
         pass
     return str(res)
+
+
+import requests
+from PIL import Image
+import io
+
+def process_math_problem_from_url(url: str, prompt: str = None) -> str:
+    """
+    Downloads an image from a given URL, analyzes it as a math problem using Gemini,
+    and returns the AI-generated solution text.
+    """
+    try:
+        # Download image from URL
+        response = requests.get(url)
+        response.raise_for_status()
+        img = Image.open(io.BytesIO(response.content))
+
+        # Default prompt if not given
+        if not prompt or not str(prompt).strip():
+            prompt = "Solve the math problem contained in this image."
+
+        # Reuse the same process_math_problem function for uniform logic
+        solution = process_math_problem(prompt, img)
+        return solution
+    except Exception as e:
+        raise RuntimeError(f"Error processing math problem from URL: {str(e)}")
+
