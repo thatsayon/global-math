@@ -3,7 +3,8 @@ from rest_framework.exceptions import ValidationError
 
 from utils.slang_detector import detect_slang
 
-from post.tasks import run_nudity_check
+from post.tasks import run_nudity_check, translate_post_task
+from core.utils import translate_text
 
 from .models import (
     PostModel,
@@ -43,12 +44,16 @@ class PostSerializer(serializers.ModelSerializer):
 
         run_nudity_check.delay(str(post.id))
         
+        translate_post_task.delay(str(post.id))
+
         return post
 
 class PostFeedSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     likes = serializers.SerializerMethodField()
     user_reaction = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    text = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
@@ -62,6 +67,19 @@ class PostFeedSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         if obj.user:
             return f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return None
+
+    def get_text(self, obj):
+        user_lang = self.context['request'].user.language or 'en'
+        if user_lang == obj.language:
+            return obj.text  # show original if same language
+
+        translation = obj.translations.filter(language=user_lang).first()
+        return translation.translated_text if translation else obj.text
+
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
         return None
 
     def get_likes(self, obj):

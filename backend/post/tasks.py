@@ -1,10 +1,12 @@
 from django.core.exceptions import ObjectDoesNotExist
 from celery import shared_task
 from nudenet import NudeDetector
-from .models import PostModel
 import requests
 import tempfile
 import logging
+
+from core.utils import translate_text
+from .models import PostModel, PostTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -75,4 +77,21 @@ def run_nudity_check(post_id):
     except Exception as e:
         logger.exception(f"Error processing post {post_id}: {str(e)}")
         return {"status": "error", "post_id": post_id, "error": str(e)}
+
+
+@shared_task
+def translate_post_task(post_id):
+    post = PostModel.objects.get(id=post_id)
+    source_lang = post.language or 'en'
+    target_languages = ['en','es','fr','de','zh','ja','he']
+
+    for lang in target_languages:
+        if lang == source_lang:
+            continue
+        translated = translate_text(post.text, target_lang=lang, source_lang=source_lang)
+        PostTranslation.objects.update_or_create(
+            post=post,
+            language=lang,
+            defaults={'translated_text': translated}
+        )
 

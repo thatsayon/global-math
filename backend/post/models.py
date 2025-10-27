@@ -48,6 +48,12 @@ class PostModel(models.Model):
         blank=True,
         null=True
     )
+    language = models.CharField(
+        max_length=10,
+        choices=User.LANGUAGE_CHOICES,
+        default='en',
+        help_text="Original language of the post"
+    )
     post_level = models.PositiveSmallIntegerField(
         default=1,
         help_text="Math difficulty level (1=Easy, 2=Medium, 3=Hard)"
@@ -66,6 +72,19 @@ class PostModel(models.Model):
 
     def __str__(self):
         return f"Post by {self.user} in {self.classroom} (Level {self.post_level})"
+
+class PostTranslation(models.Model):
+    post = models.ForeignKey(PostModel, related_name='translations', on_delete=models.CASCADE)
+    language = models.CharField(max_length=10)
+    translated_text = models.TextField()
+
+    class Meta:
+        unique_together = ('post', 'language')
+        verbose_name = "Post Translation"
+        verbose_name_plural = "Post Translations"
+
+    def __str__(self):
+        return f"{self.post.id} ({self.language})"
 
 class PostReaction(models.Model):
     REACTION_CHOICES = [
