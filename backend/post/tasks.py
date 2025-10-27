@@ -1,28 +1,78 @@
+from django.core.exceptions import ObjectDoesNotExist
 from celery import shared_task
+from nudenet import NudeDetector
 from .models import PostModel
 import requests
+import tempfile
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Initialize detector once
+detector = NudeDetector()
+
+# Labels considered unsafe
+UNSAFE_LABELS = [
+    "FEMALE_BREAST_EXPOSED",
+    "MALE_BREAST_EXPOSED",
+    "FEMALE_GENITALIA_EXPOSED",
+    "MALE_GENITALIA_EXPOSED",
+    "ANUS_EXPOSED",
+    "BUTTOCKS_EXPOSED",
+]
+
+# Threshold above which a detection counts as NSFW
+NSFW_THRESHOLD = 0.3
+
 
 @shared_task
-def verify_post_ai(post_id):
+def run_nudity_check(post_id):
+    """
+    Celery task to check if a post's image contains nudity.
+    Deletes the post if NSFW content is detected.
+    """
     try:
         post = PostModel.objects.get(id=post_id)
-    except PostModel.DoesNotExist:
-        return f"Post {post_id} does not exist."
 
-    data = {
-        "text": post.text,
-        # if your AI needs image URL, send post.image.url
-        "image_url": post.image.url if post.image else None
-    }
+        if not post.image:
+            # No image, mark as verified
+            post.is_verified = True
+            post.save(update_fields=["is_verified"])
+            return {"status": "no_image", "post_id": post_id}
 
-    # Call your AI service (replace with actual API)
-    response = requests.post("https://your-ai-service.com/verify", json=data)
+        # Download image to temp file
+        image_url = post.image.url
+        with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
+            r = requests.get(image_url, stream=True, timeout=10)
+            r.raise_for_status()
+            for chunk in r.iter_content(1024):
+                tmp.write(chunk)
+            tmp.flush()
 
-    if response.status_code == 200:
-        result = response.json()
-        post.is_verified = result.get("is_verified", False)
-        post.save()
-        return f"Post {post_id} verification completed."
-    else:
-        return f"AI verification failed for post {post_id}."
+            # Run detection
+            detections = detector.detect(tmp.name)
+
+            # Check if any unsafe label exceeds threshold
+            is_nsfw = any(
+                d["class"] in UNSAFE_LABELS and d["score"] >= NSFW_THRESHOLD
+                for d in detections
+            )
+
+            if is_nsfw:
+                post.delete()
+                return {"status": "deleted", "post_id": post_id}
+            else:
+                post.is_verified = True
+                post.save(update_fields=["is_verified"])
+                return {"status": "safe", "post_id": post_id}
+
+    except ObjectDoesNotExist:
+        logger.warning(f"Post {post_id} does not exist.")
+        return {"status": "not_found", "post_id": post_id}
+    except requests.RequestException as e:
+        logger.error(f"Failed to download image for post {post_id}: {str(e)}")
+        return {"status": "download_error", "post_id": post_id, "error": str(e)}
+    except Exception as e:
+        logger.exception(f"Error processing post {post_id}: {str(e)}")
+        return {"status": "error", "post_id": post_id, "error": str(e)}
 

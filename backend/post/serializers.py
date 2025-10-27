@@ -3,6 +3,8 @@ from rest_framework.exceptions import ValidationError
 
 from utils.slang_detector import detect_slang
 
+from post.tasks import run_nudity_check
+
 from .models import (
     PostModel,
     CommentModel
@@ -38,6 +40,8 @@ class PostSerializer(serializers.ModelSerializer):
             classroom=classroom,
             **validated_data
         )
+
+        run_nudity_check.delay(str(post.id))
         
         return post
 
