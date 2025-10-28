@@ -45,7 +45,8 @@ INSTALLED_APPS += [
     'authentication',
     'account',
     'post',
-    'classroom'
+    'classroom',
+    'administration',
 ]
 
 MIDDLEWARE = [
