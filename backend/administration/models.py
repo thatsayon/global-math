@@ -22,5 +22,5 @@ class RecentActivity(models.Model):
     role = models.CharField()
 
     def __str__(self):
-        return f"{self.user.username} - {self.get_recent_activity_display()}"
+        return f"{self.recent_activity}"
 

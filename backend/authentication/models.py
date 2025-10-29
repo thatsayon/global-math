@@ -67,6 +67,9 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
+    is_banned = models.BooleanField(default=False)
+
+    warning = models.PositiveIntegerField(default=0)
 
     groups = models.ManyToManyField(
         'auth.Group',
