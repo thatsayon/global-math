@@ -78,8 +78,7 @@ class ForgetPassView(APIView):
 
         response = Response(
             {
-                "success": True,
-                "message": "OTP send successfully",
+                "msg": "OTP send successfully",
                 "user": {
                     "id": str(user.id),
                     "email": user.email
