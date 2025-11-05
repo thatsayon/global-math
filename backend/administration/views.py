@@ -123,3 +123,4 @@ class MathLevelsListView(generics.ListAPIView):
     queryset = MathLevels.objects.all().order_by("name")  
     serializer_class = MathLevelsSerializer
     permission_classes = [permissions.AllowAny]  
+    pagination_class = None
