@@ -1,0 +1,13 @@
+kind: pipeline
+type: exec
+name: deploy
+
+steps:
+  - name: deploy-backend
+    script:
+      - cd /home/ayon/global-math/backend
+      - git pull
+      - source venv/bin/activate
+      - pip install -r requirements.txt
+      - systemctl restart django
+
