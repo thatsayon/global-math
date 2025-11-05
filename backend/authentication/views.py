@@ -7,10 +7,22 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect, get_object_or_404
 from django.core.mail import EmailMultiAlternatives
+from django.utils.timezone import now
 
+from .models import (
+    OTP
+)
+from .utils import (
+    generate_otp,
+    create_otp_token,
+    decode_otp_token,
+)
 from .serializers import (
     RegisterSerializer,
     CustomTokenObtainPairSerializer
+)
+from .tasks import (
+    send_password_reset_email_task,
 )
 
 User = get_user_model()
@@ -58,7 +70,7 @@ class ForgetPassView(APIView):
 
         send_password_reset_email_task.delay(
             user.email,
-            user.full_name,
+            user.first_name,
             otp
         )
 
