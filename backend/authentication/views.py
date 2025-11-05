@@ -5,6 +5,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from django.contrib.auth import get_user_model
+from django.shortcuts import redirect, get_object_or_404
+from django.core.mail import EmailMultiAlternatives
 
 from .serializers import (
     RegisterSerializer,
@@ -31,3 +33,57 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
+
+  
+class ForgetPassView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response(
+                {"message": "email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = get_object_or_404(User, email=email)
+
+        otp = generate_otp()
+
+        OTP.objects.create(
+            user=user,
+            otp=otp,
+            created_at=now()
+        )
+
+        send_password_reset_email_task.delay(
+            user.email,
+            user.full_name,
+            otp
+        )
+
+        passResetToken = create_otp_token(user.id)
+
+        response = Response(
+            {
+                "success": True,
+                "message": "OTP send successfully",
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email
+                },
+                "passResetToken": passResetToken
+            }
+        )
+        
+        response.set_cookie(
+            key="passResetToken",
+            value=passResetToken,
+            httponly=True,
+            secure=True,
+            samesite="Strict",
+            max_age=60*5,
+            path='/',
+        )
+
+        return response

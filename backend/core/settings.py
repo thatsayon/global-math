@@ -29,6 +29,35 @@ ALLOWED_HOSTS = [
 ]
 
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://stingray-intimate-sincerely.ngrok-free.app",
+    "https://7m0vb4fq-3000.inc1.devtunnels.ms",
+    "https://psrwv4awgq.loclx.io",
+    "https://ballmastery.com",
+    "http://72.60.165.202:3000",
+]
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PATCH",
+    "OPTIONS",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://72.60.165.202:3000",
+    "http://localhost:3000",
+    "https://stingray-intimate-sincerely.ngrok-free.app",
+    "https://7m0vb4fq-3000.inc1.devtunnels.ms",
+    "https://psrwv4awgq.loclx.io",
+    "https://ballmastery.com",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -49,9 +78,15 @@ INSTALLED_APPS += [
     'administration',
 ]
 
+# third party apps 
+INSTALLED_APPS += [
+    'corsheaders'
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
