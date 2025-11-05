@@ -23,6 +23,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'gender',
             'role',
             'language',
+            'country',
         )
 
     def validate_email(self, value):

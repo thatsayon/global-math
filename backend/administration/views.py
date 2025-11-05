@@ -5,10 +5,15 @@ from rest_framework import generics, static, permissions, status, filters
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 
+from .models import (
+    MathLevels,
+)
+
 from .serializers import (
     OverViewSerializer,
     UserManagementSerializer,
     ModerationSerializer,
+    MathLevelsSerializer,
 )
 
 User = get_user_model()
@@ -114,3 +119,7 @@ class UnbanUserView(AdminBaseView, APIView):
             status=status.HTTP_200_OK
         )
 
+class MathLevelsListView(generics.ListAPIView):
+    queryset = MathLevels.objects.all().order_by("name")  
+    serializer_class = MathLevelsSerializer
+    permission_classes = [permissions.AllowAny]  

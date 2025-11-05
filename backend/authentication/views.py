@@ -22,12 +22,8 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        refresh = CustomTokenObtainPairSerializer.get_token(user)
-
         response_data = {
-            "msg": "User registered successfully",
-            "access_token": str(refresh.access_token),
-            "refresh_token": str(refresh) 
+            "msg": "User registered successfully"
         }
 
         return Response(response_data, status=status.HTTP_201_CREATED)

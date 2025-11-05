@@ -63,6 +63,11 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
         choices=LANGUAGE_CHOICES,
         default='en',
     )
+    country = models.CharField(
+        _("country"),
+        max_length=16,
+        default='USA'
+    )
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)

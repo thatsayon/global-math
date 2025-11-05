@@ -6,6 +6,7 @@ from post.models import PostModel
 
 from .models import (
     RecentActivity,
+    MathLevels,
 )
 
 User = get_user_model()
@@ -95,3 +96,8 @@ class ModerationUserSerializer(serializers.ModelSerializer):
 class ModerationSerializer(serializers.Serializer):
     top = ModerationTopSerializer()
     users = ModerationUserSerializer(many=True)
+
+class MathLevelsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MathLevels
+        fields = ("id", "name", "slug")
