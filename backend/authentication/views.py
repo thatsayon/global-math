@@ -46,6 +46,18 @@ class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.user  
+
+        response.data["role"] = user.role
+
+        return response
+
   
 class ForgetPassView(APIView):
     permission_classes = [permissions.AllowAny]
