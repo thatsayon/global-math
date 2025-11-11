@@ -22,5 +22,5 @@ urlpatterns = [
     path('set-password/', ForgettedPasswordSetView.as_view(), name='Set Password'),
     path('resend-otp/', ResendForgetPassOTPView.as_view(), name='Resend OTP'),
     path('levels/', MathLevelsListView.as_view(), name='Math Levels'),
-    path('generate-access-token/', MathLevelsListView.as_view(), name='Math Levels'),
+    path('generate-access-token/', CustomTokenRefreshView.as_view(), name='Math Levels'),
 ]
