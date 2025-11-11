@@ -206,7 +206,8 @@ class CustomTokenRefreshView(APIView):
         
         try:
             refresh = RefreshToken(refresh_token)
-            user = refresh.user
+            user_id = refresh['user_id']  
+            user = User.objects.get(id=user_id)
 
             access_token = CustomTokenObtainPairSerializer.get_token(user).access_token
 
@@ -214,7 +215,5 @@ class CustomTokenRefreshView(APIView):
                 'access': str(access_token),
             }, status=status.HTTP_200_OK)
 
-        except TokenError:
-            return Response({
-                'detail': 'Invalid or expired refresh token.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        except (TokenError, User.DoesNotExist, KeyError):
+            return Response({'detail': 'Invalid or expired refresh token.'}, status=status.HTTP_400_BAD_REQUEST)
