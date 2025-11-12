@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from cloudinary.models import CloudinaryField
 
 from classroom.models import Classroom
+from administration.models import MathLevels
 
 import uuid
 
@@ -54,9 +55,12 @@ class PostModel(models.Model):
         default='en',
         help_text="Original language of the post"
     )
-    post_level = models.PositiveSmallIntegerField(
-        default=1,
-        help_text="Math difficulty level (1=Easy, 2=Medium, 3=Hard)"
+    post_level = models.ForeignKey(
+        MathLevels,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Select math topic or level"
     )
     is_verified = models.BooleanField(
         default=False,

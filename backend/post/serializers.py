@@ -6,12 +6,19 @@ from utils.slang_detector import detect_slang
 from post.tasks import run_nudity_check, translate_post_task
 from core.utils import translate_text
 
+from administration.models import MathLevels
+
 from .models import (
     PostModel,
     CommentModel
 )
 
 class PostSerializer(serializers.ModelSerializer):
+    post_level = serializers.PrimaryKeyRelatedField(
+        queryset=MathLevels.objects.all(),
+        required=True
+    )
+
     class Meta:
         model = PostModel
         fields = (
@@ -50,24 +57,36 @@ class PostSerializer(serializers.ModelSerializer):
 
 class PostFeedSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    profile_pic = serializers.SerializerMethodField()
     likes = serializers.SerializerMethodField()
     user_reaction = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     text = serializers.SerializerMethodField()
+    post_level_name = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
         fields = (
             "id", "text", "image",
-            "full_name",
-            "likes", "user_reaction",
-            "created_at"
+            "full_name", "profile_pic",
+            "likes", "user_reaction", "post_level",
+            "post_level_name", "created_at"
         )
 
     def get_full_name(self, obj):
         if obj.user:
             return f"{obj.user.first_name} {obj.user.last_name}".strip()
         return None
+
+    def get_profile_pic(self, obj):
+        if obj.user.profile_pic:
+            return obj.user.profile_pic.url
+        return None
+
+
+    def get_post_level_name(self, obj):
+        if obj.post_level:
+            return obj.post_level.name
 
     def get_text(self, obj):
         user_lang = self.context['request'].user.language or 'en'
