@@ -1,9 +1,25 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, generics
 
 from .models import Classroom, ClassroomMemberList
-from .serializers import JoinClassroomSerializer
+from .serializers import (
+    JoinClassroomSerializer,
+    CreateClassroomSerializer,
+    ClassroomDetailSerializer,
+)
+
+class CreateClassroomView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Classroom.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CreateClassroomSerializer
+        return ClassroomDetailSerializer
+        
+    def perform_create(self, serializer):
+        serializer.save(creator=self.request.user)
 
 class JoinClassroomView(APIView):
     permission_classes = [permissions.IsAuthenticated]

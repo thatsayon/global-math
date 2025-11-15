@@ -68,6 +68,8 @@ INSTALLED_APPS += [
     'post',
     'classroom',
     'administration',
+    'student',
+    'teacher',
 ]
 
 # third party apps 
