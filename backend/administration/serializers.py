@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 
 from post.models import PostModel
 
@@ -8,7 +9,6 @@ from .models import (
     RecentActivity,
     MathLevels,
 )
-
 User = get_user_model()
 
 class RecentActivitySerializer(serializers.ModelSerializer):
@@ -101,3 +101,68 @@ class MathLevelsSerializer(serializers.ModelSerializer):
     class Meta:
         model = MathLevels
         fields = ("id", "name", "slug")
+
+class AdminProfileSerializer(serializers.ModelSerializer):
+    profile_pic = serializers.ImageField(required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            'first_name',
+            'last_name',
+            'profile_pic',
+        ]
+
+    def validate(self, attrs):
+        first_name = attrs.get("first_name")
+        last_name = attrs.get("last_name")
+
+        if first_name and not first_name.strip():
+            raise serializers.ValidationError({"first_name": "First name cannot be empty."})
+
+        if last_name and not last_name.strip():
+            raise serializers.ValidationError({"last_name": "Last name cannot be empty."})
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        # Update first and last name directly
+        instance.first_name = validated_data.get("first_name", instance.first_name)
+        instance.last_name = validated_data.get("last_name", instance.last_name)
+
+        # Update profile picture
+        if "profile_pic" in validated_data:
+            instance.profile_pic = validated_data["profile_pic"]
+
+        instance.save()
+        return instance
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_current_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user
+
+class LevelAdjustmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MathLevels
+        fields = (
+            "id",
+            "name",
+            "slug"
+        )
+        read_only_fields = ("slug",)

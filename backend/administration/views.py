@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, static, permissions, status, filters
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
@@ -14,6 +15,11 @@ from .serializers import (
     UserManagementSerializer,
     ModerationSerializer,
     MathLevelsSerializer,
+
+    # profile serializer
+    AdminProfileSerializer,
+    ChangePasswordSerializer,
+    LevelAdjustmentSerializer,
 )
 
 User = get_user_model()
@@ -124,3 +130,56 @@ class MathLevelsListView(generics.ListAPIView):
     serializer_class = MathLevelsSerializer
     permission_classes = [permissions.AllowAny]  
     pagination_class = None
+
+class AdminProfileAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = AdminProfileSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser]  
+
+    def get_object(self):
+        return self.request.user
+
+    def get(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_object())
+        return Response(serializer.data)
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            self.get_object(),
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class ChangePasswordAPIView(generics.UpdateAPIView):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get_object(self):
+        return self.request.user
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"detail": "Password updated successfully."},
+            status=status.HTTP_200_OK
+        )
+
+class LevelAdjustmentView(generics.ListCreateAPIView):
+    serializer_class = LevelAdjustmentSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    queryset = MathLevels.objects.all()
+
+class LevelAdjustmentUpdateView(generics.RetrieveUpdateAPIView):
+    serializer_class = LevelAdjustmentSerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    queryset = MathLevels.objects.all()
+    lookup_field = 'id'
