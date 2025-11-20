@@ -3,6 +3,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from django.contrib.auth import get_user_model
 
+from administration.models import MathLevels
+
 import random
 import string
 
@@ -11,6 +13,11 @@ User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
+    math_levels = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=MathLevels.objects.all(),
+        required=False
+    )
 
     class Meta:
         model = User
@@ -24,6 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'role',
             'language',
             'country',
+            'math_levels',
         )
 
     def validate_email(self, value):
@@ -42,6 +50,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 return username
 
     def create(self, validated_data):
+        math_levels = validated_data.pop('math_levels', [])
         password = validated_data.pop('password')
         first_name = validated_data.get('first_name', '')
         last_name = validated_data.get('last_name', '')
@@ -56,6 +65,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.is_active = True  
         user.save()
+        user.math_levels.set(math_levels)
         return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.conf import settings
 
 from cloudinary.models import CloudinaryField
+
+from administration.models import MathLevels
+
 import uuid
 
 class CustomAccountManager(BaseUserManager):
@@ -67,6 +70,11 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
         _("country"),
         max_length=16,
         default='USA'
+    )
+    math_levels = models.ManyToManyField(
+        MathLevels,
+        blank=True,
+        related_name="users"
     )
 
     is_staff = models.BooleanField(default=False)
