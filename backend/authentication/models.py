@@ -7,7 +7,7 @@ from django.conf import settings
 
 from cloudinary.models import CloudinaryField
 
-from administration.models import MathLevels
+# from administration.models import MathLevels
 
 import uuid
 
@@ -72,7 +72,7 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
         default='USA'
     )
     math_levels = models.ManyToManyField(
-        MathLevels,
+        "administration.MathLevels",
         blank=True,
         related_name="users"
     )
