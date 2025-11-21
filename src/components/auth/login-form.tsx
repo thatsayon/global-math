@@ -1,40 +1,47 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import Logo from "../elements/Logo"
-import { Mail, Eye, EyeOff } from "lucide-react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Logo from "../elements/Logo";
+import { Mail, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 // react-hook-form + zod
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useLoginMutation } from "@/store/slices/api/ApiSlice";
+import { setCookie } from "@/hooks/cookie";
+import { toast } from "sonner";
 
 // ✅ Validation Schema
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-})
+  password: z.string().min(4, "Password must be at least 4 characters"),
+});
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const router = useRouter()
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+
+  // api endpoint
+
+  const [login] = useLoginMutation();
 
   // ✅ Setup form
   const {
@@ -43,14 +50,25 @@ export function LoginForm({
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-  })
+  });
 
   // ✅ Submit handler
-  const onSubmit = async (data: LoginFormValues) => {
-    console.log("Form Data:", data)
-    // Do your login logic here (API call etc.)
-    router.push("/dashboard")
+ const onSubmit = async (data: LoginFormValues) => {
+  try {
+    const response = await login(data).unwrap();
+
+    if (response.access && response.refresh) {
+      // Access: 5 minutes, Refresh: 30 days
+      setCookie('access', response.access, 1 / (24 * 60)); // 5 minutes in days
+      setCookie('refresh', response.refresh, 30);
+
+      toast.success('Welcome back!');
+      router.push('/dashboard');
+    }
+  } catch (err: any) {
+    toast.error(err?.data?.detail || 'Invalid credentials');
   }
+};
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -82,7 +100,9 @@ export function LoginForm({
                     <Mail className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                   </div>
                   {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                    <p className="text-sm text-red-500">
+                      {errors.email.message}
+                    </p>
                   )}
                 </div>
 
@@ -112,7 +132,9 @@ export function LoginForm({
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="text-sm text-red-500">{errors.password.message}</p>
+                    <p className="text-sm text-red-500">
+                      {errors.password.message}
+                    </p>
                   )}
                 </div>
 
@@ -129,5 +151,5 @@ export function LoginForm({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
