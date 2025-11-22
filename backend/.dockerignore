@@ -1,0 +1,13 @@
+.git
+__pycache__
+*.pyc
+*.log
+venv
+node_modules
+media
+static
+.env
+.idea
+.vscode
+*.db
+

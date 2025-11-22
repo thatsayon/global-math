@@ -70,6 +70,7 @@ INSTALLED_APPS += [
     'administration',
     'student',
     'teacher',
+    'messaging',
 ]
 
 # third party apps 
