@@ -13,20 +13,34 @@ function isTokenExpired(token: string): boolean {
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-
-  if (!pathname.startsWith('/dashboard')) {
+const isProtectedRoute = pathname.startsWith("/dashboard");
+  const accessToken = request.cookies.get('access')?.value;
+  
+  if (!isProtectedRoute) {
     return NextResponse.next();
   }
-
-  const accessToken = request.cookies.get('access')?.value;
-
-  if (accessToken && !isTokenExpired(accessToken)) {
+if (accessToken && !isTokenExpired(accessToken)) {
     return NextResponse.next();
   }
 
   // Token missing or expired → silent refresh
   const url = new URL('/api/generateToken', request.url);
   url.searchParams.set('redirect', pathname + request.nextUrl.search);
+
+
+  if (isProtectedRoute && !accessToken) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname === "/" && accessToken) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  
 
   return NextResponse.redirect(url);
 }
