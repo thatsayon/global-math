@@ -75,7 +75,8 @@ INSTALLED_APPS += [
 
 # third party apps 
 INSTALLED_APPS += [
-    'corsheaders'
+    'corsheaders',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -107,6 +108,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = "core.asgi.application"
 
 
 # Database
@@ -128,6 +130,16 @@ DATABASES = {
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT') 
     }
+}
+
+# Redis channel layer
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
 }
 
 # Password validation
@@ -229,3 +241,7 @@ EMAIL_USE_TLS = False
 EMAIL_HOST_USER = 'no-reply@mathos.cloud'
 EMAIL_HOST_PASSWORD = 'Ayon28@gmail.com'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# JWT info
+JWT_SECRET = "secret_key"
+

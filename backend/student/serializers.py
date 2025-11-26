@@ -65,11 +65,21 @@ class ChangePasswordSerializer(serializers.Serializer):
         return user
 
 class SupportMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source='sender.full_name', read_only=True)
+    send_by = serializers.SerializerMethodField()
+
     class Meta:
         model = SupportMessage
         fields = (
             "id",
             "message",
             "sender",
+            "sender_name",
+            "send_by",
             "created_at"
         )
+        read_only_fields = ("sender",)
+
+    def get_send_by(self, obj):
+        return "admin" if obj.sender.is_staff else "user"
+
