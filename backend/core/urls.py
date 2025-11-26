@@ -10,6 +10,7 @@ urlpatterns = [
     path('post/', include('post.urls')),
     path('student/', include('student.urls')),
     path('teacher/', include('teacher.urls')),
+    path('message/', include('messaging.urls')),
 ]
 
 if settings.DEBUG:
