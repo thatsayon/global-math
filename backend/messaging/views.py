@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
-from django.db.models import Max, Count, Q
+from django.db.models import Max, Count, Q, Prefetch
 from django.contrib.auth import get_user_model
 from .models import Conversation, ConversationParticipant, Message
 from .serializers import ConversationSerializer
