@@ -1,5 +1,8 @@
 from asgiref.sync import sync_to_async
 
+from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -23,12 +26,11 @@ sio = socketio.AsyncServer(
 @sync_to_async
 def get_user_from_token(token: str):
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
-        user_id = payload.get("user_id")
-        if not user_id:
-            return None
+        token = token.replace("Bearer ", "")
+        untoken = UntypedToken(token)  
+        user_id = untoken["user_id"]
         return User.objects.get(id=user_id)
-    except Exception as e:
+    except (InvalidToken, TokenError) as e:
         logger.error(f"Token decode error: {e}")
         return None
 
@@ -36,10 +38,12 @@ def get_user_from_token(token: str):
 async def connect(sid, environ, auth):
     token = auth.get("token") if auth else None
     user = None
+    print(token)
 
     if token:
         token = token.replace("Bearer ", "")
         user = await get_user_from_token(token)
+        print(user)
 
     if not user:
         print(f"❌ Unauthorized connection attempt: {sid}")
@@ -63,6 +67,7 @@ async def send_message(sid, data):
 
 
     message = data.get("message")
+    print(message)
 
     if not message:
         await sio.emit("error", {"error": "message is required"}, to=sio)

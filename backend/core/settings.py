@@ -245,4 +245,3 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # JWT info
 JWT_SECRET = "secret_key"
-
