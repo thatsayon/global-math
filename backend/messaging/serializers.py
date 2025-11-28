@@ -26,42 +26,56 @@ class ConversationSerializer(serializers.ModelSerializer):
             'unread_count'
         ]
 
+    def get_other_user(self, obj):
+        # cache the other participant for reuse
+        if not hasattr(obj, '_cached_other_user'):
+            user = self.context['request'].user
+            other_participant = obj.participants.exclude(user=user).select_related('user').first()
+            obj._cached_other_user = other_participant.user if other_participant else None
+        return obj._cached_other_user
+
+    def get_last_message_obj(self, obj):
+        # cache the last message for reuse
+        if not hasattr(obj, '_cached_last_message'):
+            if hasattr(obj, 'latest_messages') and obj.latest_messages:
+                obj._cached_last_message = obj.latest_messages[0]
+            else:
+                obj._cached_last_message = obj.messages.order_by('-created_at').first()
+        return obj._cached_last_message
+
     def get_conversation_name(self, obj):
-        user = self.context['request'].user
-        other_participant = obj.participants.exclude(user=user).select_related('user').first()
-        if other_participant:
-            other_user = other_participant.user
+        other_user = self.get_other_user(obj)
+        if other_user:
             full_name = f"{other_user.first_name} {other_user.last_name}".strip()
             return full_name or other_user.username
         return "Unknown"
 
     def get_other_user_avatar(self, obj):
-        user = self.context['request'].user
-        other_participant = obj.participants.exclude(user=user).select_related('user').first()
-        if other_participant:
-            avatar = getattr(other_participant.user, "profile_pic", None)
-            if avatar and hasattr(avatar, 'url'):
+        other_user = self.get_other_user(obj)
+        if other_user and getattr(other_user, "profile_pic", None):
+            avatar = other_user.profile_pic
+            if hasattr(avatar, 'url'):
                 return avatar.url
         return None
 
     def get_last_message(self, obj):
-        last_msg = obj.messages.order_by('-created_at').first()
+        last_msg = self.get_last_message_obj(obj)
         return last_msg.content if last_msg else ""
 
     def get_last_message_sender(self, obj):
-        last_msg = obj.messages.order_by('-created_at').first()
+        last_msg = self.get_last_message_obj(obj)
         if not last_msg:
             return ""
         user = self.context['request'].user
         return "Me" if last_msg.sender == user else f"{last_msg.sender.first_name} {last_msg.sender.last_name}".strip() or last_msg.sender.username
 
     def get_last_message_is_me(self, obj):
-        last_msg = obj.messages.order_by('-created_at').first()
+        last_msg = self.get_last_message_obj(obj)
         if not last_msg:
             return None
         return last_msg.sender == self.context['request'].user
 
     def get_last_message_time(self, obj):
-        last_msg = obj.messages.order_by('-created_at').first()
+        last_msg = self.get_last_message_obj(obj)
         return last_msg.created_at if last_msg else None
 

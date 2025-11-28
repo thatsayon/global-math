@@ -7,6 +7,13 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
+from django.utils import timezone
+
+from .models import (
+    Conversation,
+    ConversationParticipant,
+    Message,
+)
 
 import socketio
 import logging
@@ -36,6 +43,37 @@ def get_user_from_token(token: str):
     except (InvalidToken, TokenError) as e:
         logger.error(f"Token decode error: {e}")
         return None
+
+
+@sync_to_async
+def save_message_to_db(sender_id: str, receiver_id: str, content: str):
+    sender = User.objects.get(id=sender_id)
+    receiver = User.objects.get(id=receiver_id)
+
+    # Find or create 1-on-1 conversation
+    conversation = Conversation.objects.filter(
+        is_group=False,
+        participants__user=sender
+    ).filter(
+        participants__user=receiver
+    ).first()
+
+    if not conversation:
+        conversation = Conversation.objects.create(is_group=False)
+        ConversationParticipant.objects.bulk_create([
+            ConversationParticipant(user=sender, conversation=conversation),
+            ConversationParticipant(user=receiver, conversation=conversation)
+        ])
+
+    # Save message
+    message = Message.objects.create(
+        conversation=conversation,
+        sender=sender,
+        content=content,
+        created_at=timezone.now()
+    )
+
+    return message
 
 @sio.event
 async def connect(sid, environ, auth):
@@ -73,34 +111,35 @@ async def send_message(sid, data):
         await sio.emit("error", {"error": "Unauthorized"}, to=sid)
         return
 
-    message = data.get("message")
+    message_text = data.get("message")
     to_user = data.get("to_user")
 
-    if not message:
-        await sio.emit("error", {"error": "Message is required"}, to=sid)
+    if not message_text or not to_user:
+        await sio.emit("error", {"error": "Message and target user are required"}, to=sid)
         return
 
-    if not to_user:
-        await sio.emit("error", {"error": "Target user is required"}, to=sid)
-        return
+    # Save message in DB
+    saved_message = await save_message_to_db(sender_id, to_user, message_text)
 
-    # Prepare payload (DB save removed for now)
+    # Prepare payload
     payload = {
+        "id": str(saved_message.id),
+        "conversation": str(saved_message.conversation.id),
         "sender": sender_id,
         "receiver": to_user,
-        "message": message,
+        "message": saved_message.content,
+        "timestamp": saved_message.created_at.isoformat()
     }
 
-    # Deliver if receiver is online
+    # Deliver if online
     recipient_sid = user_sid_map.get(to_user)
     if recipient_sid:
         await sio.emit("receive_message", payload, to=recipient_sid)
-        print(f"📨 Delivered to {to_user}")
-    else:
-        print(f"📦 {to_user} is offline — not delivered yet")
 
     # Confirm to sender
     await sio.emit("message_sent", payload, to=sid)
+
+    print(f"📨 Message saved and sent from {sender_id} to {to_user}")
 
 @sio.event
 async def receive_message(sid, data):

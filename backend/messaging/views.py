@@ -63,12 +63,16 @@ class CreateConversationAPIView(APIView):
         serializer = ConversationSerializer(conversation, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
 class ChatListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         user = request.user
 
+        # Prefetch the latest message for each conversation
+        latest_messages_qs = Message.objects.order_by('-created_at')
+        
         # Fetch only 1-on-1 conversations
         conversations = (
             Conversation.objects.filter(participants__user=user, is_group=False)
@@ -79,12 +83,19 @@ class ChatListAPIView(APIView):
                     filter=Q(messages__is_read=False) & ~Q(messages__sender=user)
                 )
             )
+            .prefetch_related(
+                Prefetch(
+                    'messages',
+                    queryset=latest_messages_qs,
+                    to_attr='latest_messages'  # store latest messages in this attribute
+                ),
+                'participants__user'  # prefetch users for participants
+            )
             .order_by('-last_message_time')
         )
 
-        # Use DRF default pagination
+        # Paginate conversations
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(conversations, request)
         serializer = ConversationSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
-
