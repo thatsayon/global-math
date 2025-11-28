@@ -66,37 +66,25 @@ class CreateConversationAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class ChatListAPIView(APIView):
+class ConversationMessagesAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request, conversation_id, *args, **kwargs):
         user = request.user
+        try:
+            conversation = Conversation.objects.get(id=conversation_id, participants__user=user)
+        except Conversation.DoesNotExist:
+            return Response({"detail": "Conversation not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Subquery to fetch the last message per conversation
-        last_message_subquery = Message.objects.filter(
-            conversation=OuterRef('pk')
-        ).order_by('-created_at')
+        messages = Message.objects.filter(conversation=conversation).order_by('created_at')
+        data = [
+            {
+                "id": str(m.id),
+                "sender": m.sender.email,
+                "content": m.content,
+                "timestamp": m.created_at.isoformat(),
+                "is_me": m.sender == user
+            } for m in messages
+        ]
+        return Response(data, status=status.HTTP_200_OK)
 
-        # Fetch only 1-on-1 conversations for this user
-        conversations = (
-            Conversation.objects.filter(participants__user=user, is_group=False)
-            .annotate(
-                last_message_time=Max('messages__created_at'),
-                last_message_content=Subquery(last_message_subquery.values('content')[:1]),
-                last_message_sender=Subquery(last_message_subquery.values('sender__email')[:1]),
-                unread_count=Count(
-                    'messages',
-                    filter=Q(messages__is_read=False) & ~Q(messages__sender=user)
-                )
-            )
-            .prefetch_related(
-                'participants__user'
-            )
-            .order_by('-last_message_time')
-        )
-
-        # Paginate
-        paginator = PageNumberPagination()
-        page = paginator.paginate_queryset(conversations, request)
-        serializer = ConversationSerializer(page, many=True, context={'request': request})
-        return paginator.get_paginated_response(serializer.data)
