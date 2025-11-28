@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
+    CreateConversationAPIView,
     ConversationMessagesAPIView,
-    ChatListAPIView
 )
 
 urlpatterns = [
