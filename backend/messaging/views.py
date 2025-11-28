@@ -5,7 +5,7 @@ from rest_framework import status
 
 from django.db.models import Max, Count, Q
 from django.contrib.auth import get_user_model
-from .models import Conversation, ConversationParticipant
+from .models import Conversation, ConversationParticipant, Message
 from .serializers import ConversationSerializer
 from rest_framework.pagination import PageNumberPagination
 
