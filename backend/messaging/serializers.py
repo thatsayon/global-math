@@ -5,6 +5,7 @@ from .models import Conversation, Message
 UserAccount = get_user_model()
 
 class ConversationSerializer(serializers.ModelSerializer):
+    other_user_id = serializers.SerializerMethodField()
     conversation_name = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     last_message_sender = serializers.SerializerMethodField()
@@ -17,6 +18,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = [
             'id',
+            'other_user_id',
             'conversation_name',
             'other_user_avatar',
             'last_message',
@@ -25,6 +27,10 @@ class ConversationSerializer(serializers.ModelSerializer):
             'last_message_time',
             'unread_count'
         ]
+
+    def get_other_user_id(self, obj):
+        other_user = self.get_other_user(obj)
+        return str(other_user.id) if other_user else None
 
     def get_other_user(self, obj):
         # cache the other participant for reuse
