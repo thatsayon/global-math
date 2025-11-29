@@ -7,6 +7,7 @@ from rest_framework import status
 from django.db.models import Max, Count, Q, Prefetch
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from .models import Conversation, ConversationParticipant, Message
 from .serializers import (
@@ -15,6 +16,7 @@ from .serializers import (
 )
 from .pagination import (
     ChatPagination,
+    ChatDetailPagination,
 )
 
 
@@ -107,20 +109,35 @@ class ChatListAPIView(APIView):
         serializer = ConversationSerializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
-class ChatDetailView(APIView):
+
+class ConversationDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = ChatDetailPagination
 
     def get(self, request, conv_id, *args, **kwargs):
-        conversation = get_object_or_404(
-            Conversation.objects.filter(participants__user=request.user),
-            id=conv_id
-        )
+        user = request.user
 
-        paginator = ChatPagination()
+        if not conv_id:
+            return Response({"error": "conv_id required"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        messages = conversation.messages.order_by('created_at')
+        conv = get_object_or_404(Conversation, id=conv_id)
 
-        paginated_messages = paginator.paginate_queryset(messages, request, view=self)
+
+        Message.objects.filter(
+            conversation=conv,
+            is_read=False
+        ).exclude(sender=request.user).update(is_read=True)
+
+        ConversationParticipant.objects.filter(
+            conversation=conv,
+            user=user
+        ).update(last_read_at=timezone.now())
+
+        paginator = self.pagination_class()
+        messages_qs = conv.messages.order_by('-created_at')
+        paginated_messages = paginator.paginate_queryset(messages_qs, request)
+
         serializer = ConversationDetailSerializer(paginated_messages, many=True)
-        
+
         return paginator.get_paginated_response(serializer.data)

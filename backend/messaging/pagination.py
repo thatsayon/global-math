@@ -5,3 +5,7 @@ class ChatPagination(PageNumberPagination):
     page_query_param = "page"
     max_page_size = 50
 
+class ChatDetailPagination(PageNumberPagination):
+    page_size = 10
+    page_query_param = "page"
+    max_page_size = 100
