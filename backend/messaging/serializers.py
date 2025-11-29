@@ -81,6 +81,7 @@ class ConversationSerializer(serializers.ModelSerializer):
 
 class ConversationDetailSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()
+    is_send_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -90,7 +91,14 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
             'content',
             'created_at',
             'is_read',
+            'is_send_by_me',
         )
 
     def get_sender(self, obj):
         return obj.sender.first_name
+
+    def get_is_send_by_me(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.sender_id == request.user.id
+        return False
