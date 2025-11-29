@@ -79,3 +79,16 @@ class ConversationSerializer(serializers.ModelSerializer):
         last_msg = self.get_last_message_obj(obj)
         return last_msg.created_at if last_msg else None
 
+class ConversationDetailSerializer(serializers.ModelSerializer):
+    sender = serializers.StringRelatedField()
+
+    class Meta:
+        model = Message
+        fields = (
+            'id',
+            'sender',
+            'content',
+            'created_at',
+            'is_read',
+        )
+

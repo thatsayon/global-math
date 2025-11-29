@@ -1,13 +1,22 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
 
 from django.db.models import Max, Count, Q, Prefetch
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+
 from .models import Conversation, ConversationParticipant, Message
-from .serializers import ConversationSerializer
-from rest_framework.pagination import PageNumberPagination
+from .serializers import (
+    ConversationSerializer,
+    ConversationDetailSerializer,
+)
+from .pagination import (
+    ChatPagination,
+)
+
 
 User = get_user_model()
 
@@ -71,10 +80,8 @@ class ChatListAPIView(APIView):
     def get(self, request, *args, **kwargs):
         user = request.user
 
-        # Prefetch the latest message for each conversation
         latest_messages_qs = Message.objects.order_by('-created_at')
         
-        # Fetch only 1-on-1 conversations
         conversations = (
             Conversation.objects.filter(participants__user=user, is_group=False)
             .annotate(
@@ -88,15 +95,32 @@ class ChatListAPIView(APIView):
                 Prefetch(
                     'messages',
                     queryset=latest_messages_qs,
-                    to_attr='latest_messages'  # store latest messages in this attribute
+                    to_attr='latest_messages'  
                 ),
-                'participants__user'  # prefetch users for participants
+                'participants__user'  
             )
             .order_by('-last_message_time')
         )
 
-        # Paginate conversations
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(conversations, request)
         serializer = ConversationSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+class ChatDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, conv_id, *args, **kwargs):
+        conversation = get_object_or_404(
+            Conversation.objects.filter(participants__user=request.user),
+            id=conv_id
+        )
+
+        paginator = ChatPagination()
+
+        messages = conversation.messages.order_by('created_at')
+
+        paginated_messages = paginator.paginate_queryset(messages, request, view=self)
+        serializer = ConversationDetailSerializer(paginated_messages, many=True)
+        
         return paginator.get_paginated_response(serializer.data)
