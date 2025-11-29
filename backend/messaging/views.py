@@ -138,6 +138,6 @@ class ConversationDetailView(APIView):
         messages_qs = conv.messages.order_by('-created_at')
         paginated_messages = paginator.paginate_queryset(messages_qs, request)
 
-        serializer = ConversationDetailSerializer(paginated_messages, many=True)
+        serializer = ConversationDetailSerializer(paginated_messages, many=True, context={"request": request})
 
         return paginator.get_paginated_response(serializer.data)

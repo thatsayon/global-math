@@ -82,20 +82,35 @@ class ConversationSerializer(serializers.ModelSerializer):
 class ConversationDetailSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()
     is_send_by_me = serializers.SerializerMethodField()
+    sender_profile_pic = serializers.SerializerMethodField()
+    my_profile_pic = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = (
             'id',
             'sender',
+            'sender_profile_pic',
             'content',
             'created_at',
             'is_read',
             'is_send_by_me',
+            'my_profile_pic',
         )
 
     def get_sender(self, obj):
         return obj.sender.first_name
+
+    def get_sender_profile_pic(self, obj):
+        if obj.sender.profile_pic:
+            return obj.sender.profile_pic.url
+        return None
+
+    def get_my_profile_pic(self, obj):
+        request = self.context.get("request")
+        if request.user.profile_pic:
+            return request.user.profile_pic.url
+        return None
 
     def get_is_send_by_me(self, obj):
         request = self.context.get("request")
