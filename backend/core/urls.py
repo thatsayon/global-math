@@ -9,7 +9,7 @@ urlpatterns = [
     path('auth/', include('authentication.urls')),
     path('post/', include('post.urls')),
     path('student/', include('student.urls')),
-    path('teacher/', include('teacher.urls')),
+    path('teacher-ab/', include('teacher.urls')),
     path('message/', include('messaging.urls')),
 ]
 
