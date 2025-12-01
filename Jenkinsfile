@@ -13,11 +13,11 @@ pipeline {
 
     stages {
 
-        stage('Pull Latest Code') {
+        stage('Prepare Workspace') {
             steps {
-                echo "📥 Pulling latest from GitHub..."
+                cleanWs()
                 dir("${PROJECT_DIR}") {
-                    sh "git pull origin main"
+                    sh 'git fetch origin main && git reset --hard origin/main'
                 }
             }
         }
