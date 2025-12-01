@@ -2,39 +2,74 @@ pipeline {
     agent any
 
     triggers {
-        githubPush()  // ensures Jenkins triggers on GitHub push events
+        githubPush()
+    }
+
+    environment {
+        PROJECT_DIR = "/home/ayon/global-math/backend"
+        VENV_BIN = "/home/ayon/global-math/backend/venv/bin"
+        PM2_APP_NAME = "globalmath"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Pull Latest Code') {
             steps {
-                checkout scm
-                echo "✅ Code checked out successfully."
+                echo "📥 Pulling latest from GitHub..."
+                dir("${PROJECT_DIR}") {
+                    sh "git pull origin main"
+                }
             }
         }
 
-        stage('Build') {
+        stage('Install Dependencies') {
             steps {
-                echo "🚧 Running build process..."
-                sh 'echo build commands go here'
+                echo "📦 Installing dependencies..."
+                sh """
+                    cd ${PROJECT_DIR}
+                    ${VENV_BIN}/pip install -r requirements.txt
+                """
             }
         }
 
-        stage('Test') {
+        stage('Database Migrations') {
             steps {
-                echo "🧪 Running tests..."
-                sh 'echo test commands go here'
+                echo "🛠 Applying migrations..."
+                sh """
+                    cd ${PROJECT_DIR}
+                    ${VENV_BIN}/python manage.py migrate
+                """
+            }
+        }
+
+        stage('Collect Static Files') {
+            steps {
+                echo "🎨 Collecting static files..."
+                sh """
+                    cd ${PROJECT_DIR}
+                    ${VENV_BIN}/python manage.py collectstatic --noinput
+                """
+            }
+        }
+
+        stage('Restart Application (PM2 + Uvicorn)') {
+            steps {
+                echo "🔁 Restarting PM2 Application..."
+                sh """
+                    pm2 restart ${PM2_APP_NAME} || \
+                    pm2 start "${VENV_BIN}/uvicorn core.asgi:application --host 0.0.0.0 --port 8000 --workers 4" \
+                    --name ${PM2_APP_NAME}
+                """
             }
         }
     }
 
     post {
         success {
-            echo "🎉 Build completed successfully."
+            echo "🚀 Deployment Successful!"
         }
         failure {
-            echo "❌ Build failed."
+            echo "💀 Deployment Failed — Fix Immediately."
         }
     }
 }
