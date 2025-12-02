@@ -14,7 +14,7 @@ export const users: User[] = [
     name: "Sarah Johnson",
     email: "sarah.johnson@school.edu",
     role: "Student",
-    status: "Active",
+    status: "Banned",
     startDate: "2025-09-15",
     endDate: "2025-09-15",
   },
