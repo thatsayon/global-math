@@ -53,6 +53,8 @@ class LoginView(TokenObtainPairView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.user  
+        user.last_login = now()
+        user.save(update_fields=["last_login"])
 
         response.data["role"] = user.role
 

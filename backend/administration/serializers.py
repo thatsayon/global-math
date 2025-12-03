@@ -63,14 +63,18 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "last_name",
             "role",
             "is_banned",
-            "date_joined"
+            "date_joined",
+            "last_login"
         )
 
 class ModerationTopSerializer(serializers.Serializer):
     total_user = serializers.SerializerMethodField()
     total_active_user = serializers.SerializerMethodField()
     total_post = serializers.SerializerMethodField()
-    
+    total_challenge = serializers.SerializerMethodField()
+
+    def get_total_challenge(self, obj):
+        return 10
 
     def get_total_user(self, obj):
         return User.objects.count()
