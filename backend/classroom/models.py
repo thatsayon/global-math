@@ -93,7 +93,7 @@ class ClassRoomChallenge(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Challenge of {self.classroom.name}"
+        return self.challenge_name
 
 class ChallengeQuestion(models.Model):
     id = models.UUIDField(
@@ -111,7 +111,7 @@ class ChallengeQuestion(models.Model):
     order = models.PositiveIntegerField()
 
     def __str__(self):
-        return f"{self.order}. {self.question_text[:30]}"
+        return f"{self.order}. {self.question[:30]}"
 
 
 class QuestionOptions(models.Model):
@@ -131,16 +131,16 @@ class QuestionOptions(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            existing_count = ChallengeOption.objects.filter(question=self.question).count()
+            existing_count = QuestionOptions.objects.filter(question=self.question).count()
             if existing_count >= 4:
                 raise ValueError("Each question must have exactly 4 options.")
 
         if self.is_correct:
-            if ChallengeOption.objects.filter(question=self.question, is_correct=True).exists():
+            if QuestionOptions.objects.filter(question=self.question, is_correct=True).exists():
                 raise ValueError("Only one option can be correct.")
 
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.option_text}"
+        return f"{self.option}"
 
