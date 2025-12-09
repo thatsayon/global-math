@@ -19,4 +19,6 @@ urlpatterns = [
 
     # class room views
     path('classroom/', include('student.classroom.urls')),
+
+    path('profile/', include('student.profile.urls')),
 ]
