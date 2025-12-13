@@ -11,6 +11,7 @@ from .views import (
     ChangePasswordAPIView,
     LevelAdjustmentView,
     LevelAdjustmentUpdateView,
+    LevelDeleteView,
 )
 
 urlpatterns = [
@@ -25,4 +26,5 @@ urlpatterns = [
     path('update-password/', ChangePasswordAPIView.as_view(), name='Change Password'),
     path('level-adjustment/', LevelAdjustmentView.as_view(), name='Level Adjustment'),
     path('level-adjustment/<uuid:id>/', LevelAdjustmentUpdateView.as_view(), name='Level Adjustment Update'),
+    path('level-delete/<uuid:id>/', LevelDeleteView.as_view(), name='Level Adjustment Update'),
 ]

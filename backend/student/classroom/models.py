@@ -28,7 +28,7 @@ class ChallengeAttend(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.student.username} attending {self.challenge.challenge_name}"
+        return f"{self.student.username} attending {self.challenge}"
 
 
 class ChallengeProgress(models.Model):

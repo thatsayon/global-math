@@ -2,13 +2,23 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, status, permissions
 
-from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from django.db.models import (
+    Q,
+    Case,
+    When,
+    IntegerField,
+    Count,
+    FloatField,
+    ExpressionWrapper,
+)
+
 
 from classroom.models import (
     Classroom,
     ClassRoomChallenge,
     QuestionOptions,
+    ClassroomMemberList,
 )
 from post.serializers import PostFeedSerializer
 from post.models import PostModel
@@ -67,7 +77,10 @@ class ClassRoomFeedView(APIView):
 class ClassRoomChallengeListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ClassRoomChallengeSerializer
-    queryset = ClassRoomChallenge.objects.all()
+
+    def get_queryset(self):
+        classroom_id = self.kwargs.get('classroom_id')
+        return ClassRoomChallenge.objects.filter(classroom_id=classroom_id)
 
 class AttendChallengeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -281,4 +294,86 @@ class ChallengeResultView(APIView):
             "total_questions": progress.total_questions,
             "accuracy": f"{accuracy}%"
         })
+
+class BrowserClassroomView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ClassRoomListSerializer
+
+    def get_queryset(self):
+        search = self.request.query_params.get("search", "").strip()
+
+        qs = (
+            Classroom.objects
+            .annotate(
+                post_count=Count("posts", distinct=True),
+                member_count=Count("members", distinct=True),
+                engagement_score=ExpressionWrapper(
+                    (Count("posts") * 0.6) + (Count("members") * 0.4),
+                    output_field=FloatField()
+                )
+            )
+        )
+
+        # 🔎 Apply search (optional)
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search)
+            ).annotate(
+                match_priority=ExpressionWrapper(
+                    Case(
+                        When(name__iexact=search, then=3),
+                        When(name__icontains=search, then=2),
+                        When(description__icontains=search, then=1),
+                        default=0,
+                        output_field=IntegerField()
+                    ),
+                    output_field=IntegerField()
+                )
+            ).order_by("-match_priority", "-engagement_score")
+
+
+        # 🏆 Final ranking
+        return qs.order_by("-engagement_score")
+
+
+class JoinClassroomView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, classroom_id):
+        user = request.user
+
+        # 1. Get the classroom
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+
+        # 2. Check if already joined
+        already_joined = ClassroomMemberList.objects.filter(
+            user=user,
+            classroom=classroom
+        ).exists()
+
+        if already_joined:
+            return Response({
+                "message": "You already joined this classroom."
+            }, status=400)
+
+        # 3. Create membership entry
+        ClassroomMemberList.objects.create(
+            user=user,
+            classroom=classroom
+        )
+
+        # 4. Update classroom member count (optional but recommended)
+        classroom.members_count = ClassroomMemberList.objects.filter(
+            classroom=classroom
+        ).count()
+        classroom.save(update_fields=["members_count"])
+
+        # 5. Response
+        return Response({
+            "message": "Joined classroom successfully.",
+            "classroom_id": str(classroom.id),
+            "classroom_name": classroom.name,
+            "members": classroom.members_count
+        }, status=201)
 
