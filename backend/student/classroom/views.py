@@ -121,14 +121,9 @@ class AttendChallengeView(APIView):
             }, status=400)
 
         if progress.is_complete:
-
             return Response({
                 "is_complete": True,
                 "message": "Challenge finished",
-                "points": progress.points_earned,
-                "correct_answers": progress.total_correct,
-                "total_questions": questions.challenge.questions.count(),
-                "accuracy": round((progress.total_correct / questions.challenge.questions.count()))
             })
 
         if progress.current_order < 1:
