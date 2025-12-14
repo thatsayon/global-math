@@ -70,3 +70,14 @@ class SupportMessage(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+
+class PointAdjustment(models.Model):
+    id = models.UUIDField(
+        primary_key=True, 
+        default=uuid.uuid4, 
+        editable=False
+    )
+    classroom_point = models.PositiveIntegerField(default=0)
+    upvote_point = models.PositiveIntegerField(default=0)
+    daily_challenge_point = models.PositiveIntegerField(default=0)

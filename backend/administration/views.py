@@ -8,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import (
     MathLevels,
+    PointAdjustment,
 )
 
 from .serializers import (
@@ -20,6 +21,9 @@ from .serializers import (
     AdminProfileSerializer,
     ChangePasswordSerializer,
     LevelAdjustmentSerializer,
+
+    # setting serializers
+    PointAdjustmentSerializer
 )
 
 User = get_user_model()
@@ -188,3 +192,17 @@ class LevelDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
     queryset = MathLevels.objects.all()
     lookup_field = 'id'
+
+class PointAdjustmentView(generics.RetrieveUpdateAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = PointAdjustmentSerializer
+
+    def get_object(self):
+        obj, _ = PointAdjustment.objects.get_or_create(
+            defaults={
+                "classroom_point": 0,
+                "upvote_point": 0,
+                "daily_challenge_point": 0,
+            }
+        )
+        return obj

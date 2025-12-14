@@ -12,6 +12,9 @@ from .views import (
     LevelAdjustmentView,
     LevelAdjustmentUpdateView,
     LevelDeleteView,
+
+    # setting views
+    PointAdjustmentView,
 )
 
 urlpatterns = [
@@ -27,4 +30,7 @@ urlpatterns = [
     path('level-adjustment/', LevelAdjustmentView.as_view(), name='Level Adjustment'),
     path('level-adjustment/<uuid:id>/', LevelAdjustmentUpdateView.as_view(), name='Level Adjustment Update'),
     path('level-delete/<uuid:id>/', LevelDeleteView.as_view(), name='Level Adjustment Update'),
+
+    # setting urls
+    path('point-adjustment/', PointAdjustmentView.as_view(), name='Point Adjustment'),
 ]

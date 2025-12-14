@@ -8,6 +8,7 @@ from post.models import PostModel
 from .models import (
     RecentActivity,
     MathLevels,
+    PointAdjustment,
 )
 User = get_user_model()
 
@@ -170,3 +171,14 @@ class LevelAdjustmentSerializer(serializers.ModelSerializer):
             "slug"
         )
         read_only_fields = ("slug",)
+
+
+class PointAdjustmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PointAdjustment
+        fields = (
+            'id',
+            'classroom_point',
+            'upvote_point',
+            'daily_challenge_point',
+        )
