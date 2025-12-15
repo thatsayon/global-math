@@ -121,9 +121,18 @@ class AttendChallengeView(APIView):
             }, status=400)
 
         if progress.is_complete:
+            total_questions = progress.total_questions or attend.challenge.questions.count()
+
+            accuracy = 0
+            if total_questions > 0:
+                accuracy = round((progress.total_correct / total_questions) * 100)
+
             return Response({
                 "is_complete": True,
-                "message": "Challenge finished",
+                "points": progress.points_earned,
+                "correct_answers": progress.total_correct,
+                "total_questions": total_questions,
+                "accuracy": f"{accuracy}%"
             })
 
         if progress.current_order < 1:
