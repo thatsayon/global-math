@@ -15,6 +15,11 @@ class ChallengeAttend(models.Model):
         default=uuid.uuid4, 
         editable=False
     )
+    classroom = models.ForeignKey(
+        "classroom.Classroom",
+        on_delete=models.CASCADE,
+        related_name="challenge_attends"
+    )
     challenge = models.ForeignKey(
         ClassRoomChallenge,
         on_delete=models.SET_NULL,
@@ -74,5 +79,3 @@ class StudentAnswer(models.Model):
     def save(self, *args, **kwargs):
         self.is_correct = self.selected_option.is_correct
         super().save(*args, **kwargs)
-
-

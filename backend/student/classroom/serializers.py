@@ -15,6 +15,7 @@ class ClassRoomListSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'slug',
+            'room_code',
             'members_count',
             'description',
             'post_count'
@@ -31,3 +32,10 @@ class ClassRoomChallengeSerializer(serializers.ModelSerializer):
             'joined_count',
             'time_left'
         )
+
+
+class LeaderboardUserSerializer(serializers.Serializer):
+    rank = serializers.IntegerField()
+    user_id = serializers.UUIDField()
+    name = serializers.CharField()
+    points = serializers.IntegerField()
