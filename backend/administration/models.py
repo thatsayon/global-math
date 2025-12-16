@@ -81,3 +81,54 @@ class PointAdjustment(models.Model):
     classroom_point = models.PositiveIntegerField(default=0)
     upvote_point = models.PositiveIntegerField(default=0)
     daily_challenge_point = models.PositiveIntegerField(default=0)
+
+
+class DailyChallenge(models.Model):
+    id = models.UUIDField(
+        primary_key=True, 
+        default=uuid.uuid4, 
+        editable=False
+    )
+
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+
+    subject = models.ForeignKey(
+        MathLevels,
+        on_delete=models.PROTECT,
+        related_name="challenges"
+    )
+    grade = models.IntegerField()
+
+    number_of_questions = models.PositiveIntegerField()
+    points = models.PositiveIntegerField()
+
+    image = models.ImageField(upload_to="challenges/", null=True, blank=True)
+
+    publishing_date = models.DateField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class ChallengeQuestion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    challenge = models.ForeignKey(
+        DailyChallenge,
+        related_name="questions",
+        on_delete=models.CASCADE
+    )
+
+    order = models.PositiveIntegerField()
+
+    question_text = models.TextField()
+    answer = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Q{self.order}"
+
+
+

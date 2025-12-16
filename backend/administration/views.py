@@ -5,10 +5,13 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 
 from .models import (
     MathLevels,
     PointAdjustment,
+    DailyChallenge,
+    ChallengeQuestion,
 )
 
 from .serializers import (
@@ -23,8 +26,15 @@ from .serializers import (
     LevelAdjustmentSerializer,
 
     # setting serializers
-    PointAdjustmentSerializer
+    PointAdjustmentSerializer,
+
+    # ai question generation serializer
+    ChallengeGenerationSerializer,
+    ChallengeCreateSerializer,
 )
+
+import os
+import requests
 
 User = get_user_model()
 
@@ -206,3 +216,90 @@ class PointAdjustmentView(generics.RetrieveUpdateAPIView):
             }
         )
         return obj
+
+
+class ChallengeGenerationView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        serializer = ChallengeGenerationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ai_base_url = os.getenv("AI_BASE_URL")
+        if not ai_base_url:
+            return Response(
+                {"error": "AI_BASE_URL is not configured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        payload = {
+            "grade": serializer.validated_data["dificulty_level"],
+            "subject": serializer.validated_data["subject"],
+            "count": serializer.validated_data["number_of_question"],
+        }
+
+        try:
+            ai_response = requests.post(
+                f"{ai_base_url}/generate-question",
+                data=payload,          # 👈 THIS is form-data / x-www-form-urlencoded
+                timeout=20
+            )
+        except requests.RequestException as e:
+            return Response(
+                {"error": "Failed to reach AI service", "details": str(e)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        if ai_response.status_code != 200:
+            return Response(
+                {
+                    "error": "AI service error",
+                    "status_code": ai_response.status_code,
+                    "response": ai_response.text,
+                },
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        return Response(ai_response.json(), status=status.HTTP_200_OK)
+
+class CreateDailyChallengeView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @transaction.atomic
+    def post(self, request):
+        serializer = ChallengeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+
+        challenge = DailyChallenge.objects.create(
+            name=data["name"],
+            description=data["description"],
+            subject=data["subject"],
+            grade=data["grade"],
+            points=data["points"],
+            number_of_questions=len(data["questions"]),
+            publishing_date=data["publishing_date"],
+            image=request.FILES.get("image"),
+        )
+
+        questions = [
+            ChallengeQuestion(
+                challenge=challenge,
+                order=q["order"],
+                question_text=q["question_text"],
+                answer=q["answer"],
+            )
+            for q in data["questions"]
+        ]
+
+        ChallengeQuestion.objects.bulk_create(questions)
+
+        return Response(
+            {
+                "id": challenge.id,
+                "message": "Challenge created successfully"
+            },
+            status=status.HTTP_201_CREATED
+        )
+

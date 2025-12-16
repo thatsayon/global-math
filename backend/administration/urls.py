@@ -15,6 +15,10 @@ from .views import (
 
     # setting views
     PointAdjustmentView,
+
+    # ai question generation
+    ChallengeGenerationView,
+    CreateDailyChallengeView,
 )
 
 urlpatterns = [
@@ -33,4 +37,9 @@ urlpatterns = [
 
     # setting urls
     path('point-adjustment/', PointAdjustmentView.as_view(), name='Point Adjustment'),
+
+
+    # ai question generation urls
+    path('question-generation/', ChallengeGenerationView.as_view(), name='Challenge Generation'),
+    path('create-challenge/', CreateDailyChallengeView.as_view(), name='Create Challenge'),
 ]

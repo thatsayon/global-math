@@ -182,3 +182,29 @@ class PointAdjustmentSerializer(serializers.ModelSerializer):
             'upvote_point',
             'daily_challenge_point',
         )
+
+class ChallengeGenerationSerializer(serializers.Serializer):
+    dificulty_level = serializers.IntegerField()
+    subject = serializers.CharField()
+    number_of_question = serializers.IntegerField()
+
+
+class ChallengeQuestionInputSerializer(serializers.Serializer):
+    order = serializers.IntegerField(min_value=1)
+    question_text = serializers.CharField()
+    answer = serializers.CharField()
+
+class ChallengeCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField()
+
+    subject = serializers.PrimaryKeyRelatedField(
+        queryset=MathLevels.objects.all()
+    )
+
+    grade = serializers.IntegerField()
+    points = serializers.IntegerField()
+    publishing_date = serializers.DateField()
+
+    questions = ChallengeQuestionInputSerializer(many=True)
+
