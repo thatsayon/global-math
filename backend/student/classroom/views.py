@@ -393,11 +393,19 @@ class BrowserClassroomView(generics.ListAPIView):
 class JoinClassroomView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, classroom_id):
-        user = request.user
+    def post(self, request):
+        classroom_id = request.data.get("classroom_id")
+
+        if not classroom_id:
+            return Response(
+                {"error": "classroom_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # 1. Get the classroom
         classroom = get_object_or_404(Classroom, id=classroom_id)
+
+        user = request.user
 
         # 2. Check if already joined
         already_joined = ClassroomMemberList.objects.filter(
@@ -433,16 +441,18 @@ class JoinClassroomView(APIView):
 class JoinClassroomWithCode(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, room_code):
-        user = request.user
-
-        room_code = room_code.strip()
+    def post(self, request):
+        room_code = request.data.get("room_code")
 
         if not room_code:
             return Response(
-                {"error": "room_code is required."},
+                {"error": "room_code is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        user = request.user
+
+        room_code = room_code.strip()
 
         # ✅ FIX: use room_code field
         classroom = get_object_or_404(

@@ -18,7 +18,7 @@ urlpatterns = [
     path('challenge-attend/<uuid:challenge_id>/', AttendChallengeView.as_view(), name='Attend Challenege'),
     path('submit-answer/<uuid:challenge_id>/<uuid:question_id>/', SubmitAnswerView.as_view(), name='Attend Challenege'),
     path('browse/', BrowserClassroomView.as_view(), name='Browse Classroom'),
-    path('join/<uuid:classroom_id>/', JoinClassroomView.as_view(), name='Join Classroom'),
-    path('join-with-code/<str:room_code>/', JoinClassroomWithCode.as_view(), name='Join Classroom'),
+    path('join/', JoinClassroomView.as_view(), name='Join Classroom'),
+    path('join-with-code/', JoinClassroomWithCode.as_view(), name='Join Classroom'),
     path('leaderboard/<uuid:classroom_id>/', ClassroomLeaderboardView.as_view(), name='Leaderboard'),
 ]
