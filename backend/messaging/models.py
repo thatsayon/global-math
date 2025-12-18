@@ -2,6 +2,8 @@ import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 
+from messaging.ai_chat.models import *
+
 User = get_user_model()
 
 class Conversation(models.Model):
