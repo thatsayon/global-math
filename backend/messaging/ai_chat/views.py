@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.generics import GenericAPIView
 from rest_framework import status
 
 from .models import ChatSession, ChatMessage, MessageRole
 from .serializers import ChatSessionSerializer, ChatMessageSerializer
+from .pagination import ChatMessagePagination
 
 import requests
 import os
@@ -133,3 +135,42 @@ class SendChatMessageView(APIView):
             status=status.HTTP_200_OK
         )
 
+
+
+class GetChatMessagesView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatMessageSerializer
+    pagination_class = ChatMessagePagination
+
+    def get(self, request):
+        session_id = request.query_params.get("session_id")
+
+        if not session_id:
+            return Response(
+                {"error": "session_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # IMPORTANT: session_id here is ai_session_id (your current contract)
+        session = ChatSession.objects.filter(
+            ai_session_id=session_id,
+            user=request.user
+        ).first()
+
+        if not session:
+            return Response(
+                {"error": "Session not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        queryset = ChatMessage.objects.filter(
+            session=session
+        ).order_by("created_at")
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
