@@ -30,7 +30,8 @@ class DashboardView(APIView):
         leaderboard = [
             {
                 "name": s.account.user.username,
-                "points": s.point
+                "points": s.point,
+                "country": s.account.user.country
             }
             for s in leaderboard_qs
         ]
