@@ -11,7 +11,7 @@ class UserAccount(models.Model):
         editable=False,
         unique=True
     )
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
         related_name='account'
@@ -22,7 +22,7 @@ class UserAccount(models.Model):
     )
 
     def __str__(self):
-        return f"User"
+        return f"{self.user}"
 
 class StudentProfile(models.Model):
     id = models.UUIDField(
@@ -31,7 +31,7 @@ class StudentProfile(models.Model):
         editable=False,
         unique=True
     )
-    account = models.ForeignKey(
+    account = models.OneToOneField(
         UserAccount,
         on_delete=models.CASCADE,
         related_name='student'
@@ -39,3 +39,6 @@ class StudentProfile(models.Model):
     point = models.PositiveIntegerField(
         default=0
     )
+
+    def __str__(self):
+        return f"{self.account.user} with {self.point}"

@@ -11,6 +11,7 @@ urlpatterns = [
     path('student/', include('student.urls')),
     path('teacher-ab/', include('teacher.urls')),
     path('message/', include('messaging.urls')),
+    path('challenge/', include('challenge.urls')),
 ]
 
 if settings.DEBUG:

@@ -71,6 +71,7 @@ INSTALLED_APPS += [
     'student',
     'teacher',
     'messaging',
+    'challenge',
 ]
 
 # third party apps 
