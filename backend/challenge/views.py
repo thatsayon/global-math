@@ -1,12 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+
 from django.shortcuts import get_object_or_404
+from django.core.paginator import Paginator, EmptyPage
+from django.db.models import Q
 
 from account.models import StudentProfile, UserAccount
 from administration.models import DailyChallenge
 from challenge.models import QuestionAttempt, ChallengeAttempt
 
+from .pagination import StandardResultsPagination
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -112,4 +116,63 @@ class DashboardView(APIView):
             },
             "daily_challenges": challenge_data
         })
+
+
+
+class ChallengeListView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsPagination
+
+    def get(self, request):
+        # -----------------------------
+        # Resolve user + student
+        # -----------------------------
+        account = get_object_or_404(UserAccount, user=request.user)
+        student = get_object_or_404(StudentProfile, account=account)
+
+        # -----------------------------
+        # Base queryset (recent → old)
+        # -----------------------------
+        queryset = DailyChallenge.objects.select_related(
+            "subject"
+        ).order_by("-publishing_date")
+
+        # -----------------------------
+        # Search system
+        # -----------------------------
+        search = request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search) |
+                Q(subject__name__icontains=search)
+            )
+
+        # -----------------------------
+        # Pagination
+        # -----------------------------
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        results = [
+            {
+                "id": c.id,
+                "name": c.name,
+                "subject": c.subject.name,
+                "grade": c.grade,
+                "points": c.points,
+                "publishing_date": c.publishing_date,
+            }
+            for c in page
+        ]
+
+        # -----------------------------
+        # Final paginated response
+        # -----------------------------
+        paginated_response = paginator.get_paginated_response(results)
+
+        # Inject extra top-level data
+        paginated_response.data["total_user_point"] = student.point
+
+        return paginated_response
 
