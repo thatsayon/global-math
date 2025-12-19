@@ -10,7 +10,7 @@ from account.models import StudentProfile, UserAccount
 from administration.models import DailyChallenge
 from challenge.models import QuestionAttempt, ChallengeAttempt
 
-from .pagination import StandardResultsPagination
+from .pagination import StandardResultsPagination, LeaderboardPagination
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -176,3 +176,57 @@ class ChallengeListView(APIView):
 
         return paginated_response
 
+
+
+class LeaderboardView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = LeaderboardPagination
+
+    def get(self, request):
+        period = request.query_params.get("period", "all_time")
+
+        # -----------------------------
+        # NOTE on period
+        # -----------------------------
+        # You currently only have total points.
+        # Daily / weekly behave same as all_time for now.
+        # This is intentional to avoid lying with fake data.
+
+        # -----------------------------
+        # Base queryset
+        # -----------------------------
+        queryset = (
+            StudentProfile.objects
+            .select_related("account__user")
+            .order_by("-point", "id")  # stable ordering
+        )
+
+        # -----------------------------
+        # Build full ranking list (once)
+        # -----------------------------
+        ranked = []
+        for idx, s in enumerate(queryset, start=1):
+            ranked.append({
+                "rank": idx,
+                "name": s.account.user.username,
+                "country": s.account.user.country,
+                "points": s.point,
+                "streak_days": None  # placeholder
+            })
+
+        # -----------------------------
+        # Top champions (always top 3)
+        # -----------------------------
+        top_champions = ranked[:3]
+
+        # -----------------------------
+        # Paginate global rankings (after top 3)
+        # -----------------------------
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(ranked[3:], request)
+
+        return paginator.get_paginated_response({
+            "period": period,
+            "top_champions": top_champions,
+            "global_rankings": page
+        })
