@@ -7,6 +7,7 @@ from .views import (
     ProfileView,
     MyClassroomView,
     ClassroomDetailView,
+    InviteStudentView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     path('my-classroom/', MyClassroomView.as_view(), name='My Classroom'),
     path('create-classroom/', CreateClassroomView.as_view(), name='Create Classroom'),
     path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
+    path('invite-student/', InviteStudentView.as_view(), name='Invite Student'),
 ]

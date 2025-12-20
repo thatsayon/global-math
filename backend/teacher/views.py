@@ -25,6 +25,8 @@ from .pagination import (
     ClassroomMemberPagination,
 )
 
+import os
+
 User = get_user_model()
 
 class ProfileView(generics.RetrieveUpdateAPIView):
@@ -117,3 +119,21 @@ class ClassroomDetailView(generics.RetrieveAPIView):
             "members": members_pagination
         })
 
+class InviteStudentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        classroom_id = request.query_params.get("id")
+
+        if not classroom_id:
+            raise ValidationError(
+                {"id": "classroom_id is required"}
+            )
+
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+
+        share_url = os.getenv('FRONTEND_BASE') + "/" + classroom.room_code
+        print(classroom.room_code)
+        return Response({
+            "classroom link": share_url
+        }, status=status.HTTP_200_OK)
