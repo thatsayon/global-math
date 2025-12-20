@@ -3,6 +3,15 @@ from classroom.views import (
     CreateClassroomView,
 )
 
+from .views import (
+    ProfileView,
+    MyClassroomView,
+    ClassroomDetailView,
+)
+
 urlpatterns = [
+    path('profile/', ProfileView.as_view(), name='Profile View'),
+    path('my-classroom/', MyClassroomView.as_view(), name='My Classroom'),
     path('create-classroom/', CreateClassroomView.as_view(), name='Create Classroom'),
+    path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
 ]

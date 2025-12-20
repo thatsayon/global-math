@@ -1,3 +1,119 @@
-from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
+from rest_framework import generics, status, permissions
 
-# Create your views here.
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.db.models import Sum, Q, Max
+
+from classroom.models import (
+    Classroom,
+    ClassroomMemberList,
+)
+from post.models import (
+    PostModel,
+)
+
+from .serializers import (
+    ProfileSerializer,
+    MyClassroomSerializer,
+    ClassroomDetailSerializer,
+    ClassroomMemberSerializer,
+)
+from .pagination import (
+    ClassroomMemberPagination,
+)
+
+User = get_user_model()
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ProfileSerializer
+
+    def get_object(self):
+        return self.request.user
+
+
+class MyClassroomView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = MyClassroomSerializer
+
+    def get_queryset(self):
+        queryset = (
+            Classroom.objects
+            .filter(creator=self.request.user)
+            .annotate(
+                last_activity=Max("posts__created_at") 
+            )
+        )
+
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(slug__icontains=search) |
+                Q(room_code__icontains=search) |
+                Q(description__icontains=search)
+            )
+
+        return queryset.order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        total_classes = queryset.count()
+        total_students = queryset.aggregate(total=Sum("members_count"))["total"] or 0
+        total_posts = PostModel.objects.filter(classroom__in=queryset).count()
+
+        return Response({
+            "total_classes": total_classes,
+            "total_posts": total_posts,
+            "students": total_students,
+            "results": serializer.data,
+        })
+
+
+
+class ClassroomDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ClassroomDetailSerializer
+    pagination_class = ClassroomMemberPagination
+
+    def get_object(self):
+        classroom_id = self.request.query_params.get("id")
+
+        if not classroom_id:
+            raise ValidationError(
+                {"id": "classroom id query parameter is required"}
+            )
+
+        return get_object_or_404(Classroom, id=classroom_id)
+
+    def retrieve(self, request, *args, **kwargs):
+        classroom = self.get_object()
+
+        # Static classroom data
+        classroom_data = self.get_serializer(classroom).data
+
+        # Paginated members
+        members_qs = (
+            ClassroomMemberList.objects
+            .filter(classroom=classroom)
+            .select_related("user")
+            .order_by("-joined_at")
+        )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(members_qs, request)
+
+        members_data = ClassroomMemberSerializer(page, many=True).data
+        members_pagination = paginator.get_paginated_response(members_data).data
+
+        return Response({
+            "classroom": classroom_data,
+            "members": members_pagination
+        })
+
