@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Logo from "../elements/Logo";
-import { Mail, Eye, EyeOff } from "lucide-react";
+import { Mail, Eye, EyeOff, Loader } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -41,7 +41,7 @@ export function LoginForm({
 
   // api endpoint
 
-  const [login] = useLoginMutation();
+  const [login, {isLoading}] = useLoginMutation();
 
   // ✅ Setup form
   const {
@@ -140,10 +140,11 @@ export function LoginForm({
 
                 <Button
                   size={"lg"}
+                  disabled={isLoading}
                   type="submit"
                   className="w-full bg-[#3B82F6] min-h-12"
                 >
-                  Login
+                  {isLoading ? <span className="animate-spin"><Loader/></span> : "Login"}
                 </Button>
               </div>
             </div>

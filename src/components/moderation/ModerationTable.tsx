@@ -1,5 +1,7 @@
-"use client"
-import React, { useEffect, useMemo, useState } from 'react';
+// components/moderation/ModerationTable.tsx
+"use client";
+
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -7,236 +9,311 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+} from "@/components/ui/select";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination';
-import { MoreVertical, AlertTriangle, VolumeX, Ban, CheckCircle } from 'lucide-react';
-import { moderationData } from '@/data/Moderation';
+} from "@/components/ui/pagination";
+import { MoreVertical, Ban, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
+import { useBanUserMutation, useGetModerationDataQuery, useUnbanUserMutation } from "@/store/slices/api/moderationApiSlice";
 
 const ModerationTable = () => {
-  const [userType, setUserType] = useState<string>('All');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 8;
+  const [filter, setFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
 
-  // Get initials from name
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase();
-  };
+  const { data, isLoading, isFetching } = useGetModerationDataQuery({
+    page,
+    filter,
+  });
 
-  // Filter data by user type
-  const filteredData = useMemo(() => {
-    if (userType === 'All') return moderationData;
-    return moderationData.filter(record => record.role === userType);
-  }, [userType]);
+  const [banUser] = useBanUserMutation();
+  const [unbanUser] = useUnbanUserMutation();
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
+  const users = data?.users || [];
+  const totalUsers = data?.top.total_user || 0;
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(totalUsers / itemsPerPage);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [userType]);
-
-  const getActionBadge = (action: string) => {
-    const baseClasses = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2 border-dashed';
-    
-    switch (action) {
-      case 'Warned':
-        return (
-          <span className={`${baseClasses} bg-yellow-50 text-yellow-700 border-yellow-300`}>
-            <AlertTriangle className="w-3 h-3" />
-            Warned
-          </span>
-        );
-      case 'Muted':
-        return (
-          <span className={`${baseClasses} bg-gray-50 text-gray-700 border-gray-300`}>
-            <VolumeX className="w-3 h-3" />
-            Muted
-          </span>
-        );
-      case 'Banned':
-        return (
-          <span className={`${baseClasses} bg-red-50 text-red-700 border-red-300`}>
-            <Ban className="w-3 h-3" />
-            Banned
-          </span>
-        );
-      case 'UnBanned':
-        return (
-          <span className={`${baseClasses} bg-green-50 text-green-700 border-green-300`}>
-            <CheckCircle className="w-3 h-3" />
-            UnBanned
-          </span>
-        );
-      default:
-        return null;
+  const handleBan = async (userId: string) => {
+    try {
+      await banUser({ user_id: userId }).unwrap();
+      toast.success("User banned");
+    } catch (err: any) {
+      toast.error(err?.data?.error || "Failed to ban");
     }
   };
 
-  return (
-    <div className="w-full rounded-lg p-4 md:p-6">
-      {/* Header with filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-          Moderation History ({filteredData.length})
-        </h2>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={userType} onValueChange={setUserType}>
-            <SelectTrigger className="w-full sm:w-[140px] bg-white">
-              <SelectValue placeholder="Select user type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All</SelectItem>
-              <SelectItem value="Student">Student</SelectItem>
-              <SelectItem value="Teacher">Teacher</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+  const handleUnban = async (userId: string) => {
+    try {
+      await unbanUser({ user_id: userId }).unwrap();
+      toast.success("User unbanned");
+    } catch (err: any) {
+      toast.error(err?.data?.error || "Failed to unban");
+    }
+  };
 
-      {/* Table - Desktop view */}
-      <div className="hidden md:block overflow-x-auto bg-white rounded-lg p-2">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[80px]">No</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Action Taken</TableHead>
-              <TableHead className="text-center">Warning</TableHead>
-              <TableHead className="text-right w-[80px]">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedData.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell className="font-medium">{record.id}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-blue-100 text-blue-700">
-                        {getInitials(record.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium text-gray-900">{record.name}</div>
-                      <div className="text-sm text-gray-500">{record.role}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-gray-600">{record.date}</TableCell>
-                <TableCell>{getActionBadge(record.actionTaken)}</TableCell>
-                <TableCell className="text-center font-medium">{record.warnings}</TableCell>
-                <TableCell className="text-right">
-                  <button className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition-colors">
-                    <MoreVertical className="w-4 h-4 text-gray-600" />
-                  </button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+  const getInitials = (first: string, last: string) =>
+    `${first[0] || ""}${last[0] || ""}`.toUpperCase();
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
-        {paginatedData.map((record) => (
-          <div key={record.id} className="bg-white border rounded-lg p-4 space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-blue-100 text-blue-700">
-                    {getInitials(record.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium text-gray-900">{record.name}</div>
-                  <div className="text-sm text-gray-500">{record.role}</div>
-                </div>
-              </div>
-              <button className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 transition-colors">
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-gray-500">Date:</span>
-                <span className="ml-2 text-gray-900">{record.date}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Warnings:</span>
-                <span className="ml-2 font-medium text-gray-900">{record.warnings}</span>
-              </div>
-            </div>
-            <div>{getActionBadge(record.actionTaken)}</div>
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+        pageNumbers.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              isActive={page === i}
+              onClick={() => setPage(i)}
+              className="cursor-pointer"
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      } else if (i === page - 2 || i === page + 2) {
+        pageNumbers.push(
+          <PaginationItem key={i}>
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+    }
+
+    return (
+      <Pagination className="mt-6">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className={
+                page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+              }
+            />
+          </PaginationItem>
+
+          {pageNumbers}
+
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className={
+                page === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : "cursor-pointer"
+              }
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
+
+  const UserCard = ({ user }: { user: (typeof users)[0] }) => (
+    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-12 w-12">
+            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold">
+              {getInitials(user.first_name, user.last_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h4 className="font-semibold text-gray-900">
+              {user.first_name} {user.last_name}
+            </h4>
+            <p className="text-xs text-gray-500">{user.role}</p>
           </div>
-        ))}
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {user.is_banned ? (
+              <DropdownMenuItem
+                onClick={() => handleUnban(user.id)}
+                className="text-green-600"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Unban User
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => handleBan(user.id)}
+                className="text-red-600"
+              >
+                <Ban className="mr-2 h-4 w-4" /> Ban User
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex justify-end">
-          <Pagination className='flex justify-end'>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setCurrentPage(Math.max(1, currentPage - 1));
-                  }}
-                  className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-              {[...Array(totalPages)].map((_, i) => (
-                <PaginationItem key={i + 1}>
-                  <PaginationLink 
-                    href="#" 
-                    isActive={currentPage === i + 1}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setCurrentPage(i + 1);
-                    }}
-                  >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext 
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setCurrentPage(Math.min(totalPages, currentPage + 1));
-                  }}
-                  className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <span className="text-gray-500">Status:</span>
+          <span
+            className={`ml-2 font-medium ${
+              user.is_banned ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {user.is_banned ? "Banned" : "Active"}
+          </span>
         </div>
+        <div>
+          <span className="text-gray-500">Warnings:</span>
+          <span className="ml-2 font-medium">{user.warning}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full rounded-lg bg-gray-50 p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h2 className="text-xl font-semibold">User Moderation</h2>
+
+        <Select
+          value={filter}
+          onValueChange={(v) => {
+            setFilter(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users</SelectItem>
+            <SelectItem value="student">Students</SelectItem>
+            <SelectItem value="teacher">Teachers</SelectItem>
+            <SelectItem value="banned">Banned Only</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Loading State */}
+      {isLoading || isFetching ? (
+        <div className="text-center py-12 text-gray-500">Loading users...</div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">No users found</div>
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto border rounded-lg bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Warnings</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                            {getInitials(user.first_name, user.last_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">
+                            {user.first_name} {user.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {user.id.slice(0, 8)}...
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">{user.role}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          user.is_banned
+                            ? "bg-red-100 text-red-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {user.is_banned ? "Banned" : "Active"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center font-medium">
+                      {user.warning}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {user.is_banned ? (
+                            <DropdownMenuItem
+                              onClick={() => handleUnban(user.id)}
+                              className="text-green-600"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" /> Unban
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleBan(user.id)}
+                              className="text-red-600"
+                            >
+                              <Ban className="mr-2 h-4 w-4" /> Ban User
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-4">
+            {users.map((user) => (
+              <UserCard key={user.id} user={user} />
+            ))}
+          </div>
+
+          {/* Pagination - Both Views */}
+          {renderPagination()}
+        </>
       )}
     </div>
   );

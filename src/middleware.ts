@@ -1,4 +1,3 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -7,39 +6,41 @@ function isTokenExpired(token: string): boolean {
     const payload = JSON.parse(atob(token.split(".")[1]));
     return payload.exp * 1000 < Date.now();
   } catch {
-    return true; // Invalid token → treat as expired
+    return true;
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get("access")?.value;
+  const refreshToken = request.cookies.get("refresh")?.value;
 
-  // 1. If on root (/) and logged in → redirect to dashboard
+  // 1. Root redirect: if logged in → go to dashboard
   if (pathname === "/" && accessToken && !isTokenExpired(accessToken)) {
-    const url = new URL("/dashboard", request.url);
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // 2. If on protected route (/dashboard/*)
-  const isProtectedRoute = pathname.startsWith("/dashboard");
+  // 2. Protected routes
+  const isProtected = pathname.startsWith("/dashboard");
 
-  if (isProtectedRoute) {
-    // No token → redirect to login
-    if (!accessToken) {
-      const url = new URL("/", request.url);
-      return NextResponse.redirect(url);
+  if (isProtected) {
+    const hasValidAccessToken = accessToken && !isTokenExpired(accessToken);
+
+    // Case A: Valid access token → continue
+    if (hasValidAccessToken) {
+      return NextResponse.next();
     }
 
-    // Token exists but expired → silent refresh
-    if (isTokenExpired(accessToken)) {
-      const url = new URL("/api/generateToken", request.url);
-      url.searchParams.set("redirect", pathname + request.nextUrl.search);
-      return NextResponse.redirect(url);
+    // Case B: No access token OR expired → try to refresh (if refresh exists)
+    if (refreshToken) {
+      const refreshUrl = new URL("/api/generateToken", request.url);
+      refreshUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
+
+      return NextResponse.redirect(refreshUrl);
     }
 
-    // Token valid → allow access
-    return NextResponse.next();
+    // Case C: No refresh token → force logout
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // All other routes → allow
@@ -48,7 +49,9 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/", // for root redirect
-    "/dashboard/:path*", // protect all dashboard routes
+    "/",
+    "/dashboard/:path*",
+    // Important: Exclude the refresh API route itself to prevent redirect loop
+    "/((?!api/generateToken).*)",
   ],
 };

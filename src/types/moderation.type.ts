@@ -1,7 +1,10 @@
+// src/types/moderation.type.ts
+
 export interface ModerationTopStats {
   total_user: number;
   total_active_user: number;
   total_post: number;
+  total_challenge: number;
 }
 
 export interface ModerationUser {
@@ -17,3 +20,15 @@ export interface ModerationResponse {
   top: ModerationTopStats;
   users: ModerationUser[];
 }
+
+export interface BanUserRequest {
+  user_id: string;
+}
+
+export interface BanUserResponse {
+  msg: string;
+  error?: string;
+}
+
+export type UnbanUserRequest = BanUserRequest;
+export type UnbanUserResponse = BanUserResponse;

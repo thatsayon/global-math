@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 const pointSchema = z.object({
   classroomPoint: z.string().min(1, 'Classroom point is required'),
   upvotePoint: z.string().min(1, 'Upvote point is required'),
-  dailyChallengePoint: z.string().min(1, 'Daily challenge point is required'),
+  dailyChallengePoint: z.string().min(1,   'Daily challenge point is required'),
 });
 
 type PointFormData = z.infer<typeof pointSchema>;

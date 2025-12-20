@@ -1,5 +1,3 @@
-// src/features/api/ApiSlice.ts
-import { RootState } from "@/store/store";
 import { loginRequest, loginResponse } from "@/types/auth.type";
 import { UserRequest, UsersResponse } from "@/types/user.type";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
@@ -24,7 +22,8 @@ export const apiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["User"],
+  tagTypes: ["User", "Profile", "Level", "Moderation"],
+
   endpoints: (builder) => ({
     // auth endpoints _-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_
 
@@ -39,23 +38,29 @@ export const apiSlice = createApi({
     // user endpoints _-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_
 
     getUsers: builder.query<UsersResponse, UserRequest>({
-      query: ({ page = 1, search = '', role = 'all', is_banned = 'all' }) => ({
+      query: ({ page = 1, search = "", role = "all", is_banned = "all" }) => ({
         url: "/admin-api/user-management/",
         params: {
           page,
-          ...(search ? {search}:{}),
-          ...(role !== 'all' ? {role}:{}),
-          ...(is_banned !== 'all' ? {is_banned}:{}),
+          ...(search ? { search } : {}),
+          ...(role !== "all" ? { role } : {}),
+          ...(is_banned !== "all" ? { is_banned } : {}),
         },
         method: "GET",
       }),
-      providesTags: (result)=>
-        result ? [
-          {
-            type: "User", id: "LIST"
-          },
-          ...result.results.map(({id})=> ({type: "User" as const, id}))
-        ] : [{type: "User", id: "LIST"}],
+      providesTags: (result) =>
+        result
+          ? [
+              {
+                type: "User",
+                id: "LIST",
+              },
+              ...result.results.map(({ id }) => ({
+                type: "User" as const,
+                id,
+              })),
+            ]
+          : [{ type: "User", id: "LIST" }],
     }),
   }),
 });
