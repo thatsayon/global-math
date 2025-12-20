@@ -4,6 +4,7 @@ from classroom.models import (
     ClassRoomChallenge,
     ChallengeQuestion,
     QuestionOptions,
+    Classroom,
 )
 import uuid
 
@@ -16,7 +17,7 @@ class ChallengeAttend(models.Model):
         editable=False
     )
     classroom = models.ForeignKey(
-        "classroom.Classroom",
+        Classroom,
         on_delete=models.CASCADE,
         related_name="challenge_attends"
     )
