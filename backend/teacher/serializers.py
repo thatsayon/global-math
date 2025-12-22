@@ -183,3 +183,80 @@ class QuestionWithOptionsCreateSerializer(serializers.Serializer):
                 )
 
         return question
+
+
+class QuestionWithOptionsUpdateSerializer(serializers.Serializer):
+    question = serializers.CharField()
+    options = QuestionOptionInputSerializer(many=True)
+
+    def validate(self, data):
+        request = self.context["request"]
+        question_obj = self.context["question"]
+
+        if question_obj.challenge.classroom.creator != request.user:
+            raise serializers.ValidationError(
+                "You are not allowed to update this question."
+            )
+
+        # PATCH case: options not provided
+        if "options" not in data:
+            return data
+
+        options = data["options"]
+
+        if len(options) != 4:
+            raise serializers.ValidationError(
+                "Each question must have exactly 4 options."
+            )
+
+        correct_count = sum(1 for opt in options if opt["is_correct"])
+        if correct_count != 1:
+            raise serializers.ValidationError(
+                "Exactly one option must be correct."
+            )
+
+        return data
+
+    def update(self, instance, validated_data):
+        options_data = validated_data.get("options")
+
+        with transaction.atomic():
+            if "question" in validated_data:
+                instance.question = validated_data["question"]
+                instance.save()
+
+            if options_data is not None:
+                instance.options.all().delete()
+                for opt in options_data:
+                    QuestionOptions.objects.create(
+                        question=instance,
+                        option=opt["option"],
+                        is_correct=opt["is_correct"]
+                    )
+
+        return instance
+
+
+
+class QuestionOptionReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionOptions
+        fields = (
+            "id",
+            "option",
+            "is_correct",   # ⚠️ teacher-only; hide later for students
+        )
+
+
+class ChallengeQuestionReadSerializer(serializers.ModelSerializer):
+    options = QuestionOptionReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChallengeQuestion
+        fields = (
+            "id",
+            "question",
+            "order",
+            "options",
+        )
+

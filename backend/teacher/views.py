@@ -11,6 +11,8 @@ from classroom.models import (
     Classroom,
     ClassroomMemberList,
     ClassRoomChallenge,
+    ChallengeQuestion,
+    QuestionOptions,
 )
 from post.models import (
     PostModel,
@@ -26,6 +28,8 @@ from .serializers import (
     ClassroomChallengeListSerializer,
     ClassroomChallengeCreateSerializer,
     QuestionWithOptionsCreateSerializer,
+    ChallengeQuestionReadSerializer,
+    QuestionWithOptionsUpdateSerializer,
 )
 from .pagination import (
     ClassroomMemberPagination,
@@ -218,3 +222,69 @@ class CreateQuestionWithOptionsView(generics.CreateAPIView):
 
     def get_serializer_context(self):
         return {"request": self.request}
+
+
+
+class ChallengeQuestionListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChallengeQuestionReadSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        challenge_id = self.request.query_params.get("challenge_id")
+
+        if not challenge_id:
+            raise ValidationError(
+                {"challenge_id": "challenge_id query parameter is required"}
+            )
+
+        challenge = get_object_or_404(
+            ClassRoomChallenge,
+            id=challenge_id
+        )
+
+        # Access control (teacher only for now)
+        if challenge.classroom.creator != user:
+            return ChallengeQuestion.objects.none()
+
+        return (
+            ChallengeQuestion.objects
+            .filter(challenge=challenge)
+            .prefetch_related("options")
+            .order_by("order")
+        )
+
+class UpdateQuestionWithOptionsView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = QuestionWithOptionsUpdateSerializer
+    http_method_names = ["put", "patch"]
+
+    def get_object(self):
+        return get_object_or_404(
+            ChallengeQuestion,
+            id=self.kwargs["question_id"]
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["question"] = self.get_object()
+        return context
+
+
+
+class DeleteQuestionView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        question = get_object_or_404(
+            ChallengeQuestion,
+            id=self.kwargs["question_id"]
+        )
+
+        # Ownership check
+        if question.challenge.classroom.creator != self.request.user:
+            raise PermissionDenied(
+                "You are not allowed to delete this question."
+            )
+
+        return question

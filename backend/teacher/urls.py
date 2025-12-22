@@ -15,6 +15,9 @@ from .views import (
     UpdateClassroomChallengeView,
     DeleteClassroomChallengeView,
     CreateQuestionWithOptionsView,
+    ChallengeQuestionListView,
+    UpdateQuestionWithOptionsView,
+    DeleteQuestionView,
 )
 
 urlpatterns = [
@@ -30,4 +33,7 @@ urlpatterns = [
     path('challenge-update/<uuid:pk>/', UpdateClassroomChallengeView.as_view(), name='Update Classroom'),
     path('challenge-delete/<uuid:pk>/', DeleteClassroomChallengeView.as_view(), name='Delete Classroom'),
     path('question-create/', CreateQuestionWithOptionsView.as_view(), name='Question Create'),
+    path('question-list/', ChallengeQuestionListView.as_view(), name='Question List'),
+    path('question-update/<uuid:question_id>/', UpdateQuestionWithOptionsView.as_view(), name='Question Update'),
+    path('question-delete/<uuid:question_id>/', DeleteQuestionView.as_view(), name='Question Delete'),
 ]
