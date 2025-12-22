@@ -100,7 +100,6 @@ class ClassroomChallengeCreateSerializer(serializers.ModelSerializer):
             "challenge_description",
             "points",
             "visibility",
-            "time_left",
         )
         read_only_fields = ("id",)
 
