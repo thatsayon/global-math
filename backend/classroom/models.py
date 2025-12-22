@@ -99,7 +99,7 @@ class ClassRoomChallenge(models.Model):
         default="private"
     )
     joined_count = models.PositiveIntegerField(default=0, blank=True, null=True)
-    time_left = models.DateTimeField()
+    time_left = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
