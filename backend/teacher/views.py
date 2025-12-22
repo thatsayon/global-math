@@ -10,6 +10,7 @@ from django.db.models import Sum, Q, Max
 from classroom.models import (
     Classroom,
     ClassroomMemberList,
+    ClassRoomChallenge,
 )
 from post.models import (
     PostModel,
@@ -20,6 +21,11 @@ from .serializers import (
     MyClassroomSerializer,
     ClassroomDetailSerializer,
     ClassroomMemberSerializer,
+
+    # classroom related serializers
+    ClassroomChallengeListSerializer,
+    ClassroomChallengeCreateSerializer,
+    QuestionWithOptionsCreateSerializer,
 )
 from .pagination import (
     ClassroomMemberPagination,
@@ -137,3 +143,32 @@ class InviteStudentView(APIView):
         return Response({
             "classroom link": share_url
         }, status=status.HTTP_200_OK)
+
+# classroom related views
+
+class ChallengeListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ClassroomChallengeListSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return ClassRoomChallenge.objects.filter(
+            classroom__creator=user
+        ).select_related("classroom")
+
+
+class CreateClassroomChallengeView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ClassroomChallengeCreateSerializer
+
+    def get_serializer_context(self):
+        return {"request": self.request}
+
+
+class CreateQuestionWithOptionsView(generics.CreateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = QuestionWithOptionsCreateSerializer
+
+    def get_serializer_context(self):
+        return {"request": self.request}

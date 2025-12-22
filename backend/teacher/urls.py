@@ -8,6 +8,11 @@ from .views import (
     MyClassroomView,
     ClassroomDetailView,
     InviteStudentView,
+
+    # challenge list views
+    ChallengeListView,
+    CreateClassroomChallengeView,
+    CreateQuestionWithOptionsView,
 )
 
 urlpatterns = [
@@ -16,4 +21,9 @@ urlpatterns = [
     path('create-classroom/', CreateClassroomView.as_view(), name='Create Classroom'),
     path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
     path('invite-student/', InviteStudentView.as_view(), name='Invite Student'),
+
+    # challenge list urls
+    path('challenge-list/', ChallengeListView.as_view(), name='Challenge List'),
+    path('challenge-create/', CreateClassroomChallengeView.as_view(), name='Challenge Create'),
+    path('question-create/', CreateQuestionWithOptionsView.as_view(), name='Question Create'),
 ]

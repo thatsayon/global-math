@@ -75,6 +75,10 @@ class ClassroomMemberList(models.Model):
         return f"{self.user} joined {self.classroom.name}"
 
 class ClassRoomChallenge(models.Model):
+    VISIBILITY_CHOICES = (
+        ("private", "Private"),
+        ("public", "Public"),
+    )
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -88,6 +92,11 @@ class ClassRoomChallenge(models.Model):
     )
     challenge_name = models.CharField()
     challenge_description = models.CharField()
+    visibility = models.CharField(
+        max_length=10,
+        choices=VISIBILITY_CHOICES,
+        default="private"
+    )
     joined_count = models.PositiveIntegerField(default=0, blank=True, null=True)
     time_left = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
