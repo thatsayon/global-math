@@ -83,9 +83,10 @@ class ClassroomChallengeListSerializer(serializers.ModelSerializer):
             'id',
             'challenge_name',
             'challenge_description',
+            'points',
             'joined_count',
             'time_left',
-            'created_at'
+            'created_at',
         )
 
 
@@ -97,6 +98,7 @@ class ClassroomChallengeCreateSerializer(serializers.ModelSerializer):
             "classroom",
             "challenge_name",
             "challenge_description",
+            "points",
             "visibility",
             "time_left",
         )

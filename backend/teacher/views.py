@@ -152,9 +152,24 @@ class ChallengeListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        classroom_id = self.request.query_params.get("classroom_id")
+
+        if not classroom_id:
+            raise ValidationError(
+                {"classroom_id": "classroom_id query parameter is required"}
+            )
+
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+
+        # Access control: teacher or member only
+        if (
+            classroom.creator != user
+            and not classroom.members.filter(user=user).exists()
+        ):
+            return ClassRoomChallenge.objects.none()
 
         return ClassRoomChallenge.objects.filter(
-            classroom__creator=user
+            classroom=classroom
         ).select_related("classroom")
 
 
@@ -165,6 +180,37 @@ class CreateClassroomChallengeView(generics.CreateAPIView):
     def get_serializer_context(self):
         return {"request": self.request}
 
+class UpdateClassroomChallengeView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ClassroomChallengeCreateSerializer
+    queryset = ClassRoomChallenge.objects.all()
+    http_method_names = ["patch", "put"]
+
+    def perform_update(self, serializer):
+        challenge = self.get_object()
+        user = self.request.user
+
+        if challenge.classroom.creator != user:
+            raise PermissionDenied(
+                "You are not allowed to update this challenge."
+            )
+
+        serializer.save()
+
+
+class DeleteClassroomChallengeView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = ClassRoomChallenge.objects.all()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+
+        if instance.classroom.creator != user:
+            raise PermissionDenied(
+                "You are not allowed to delete this challenge."
+            )
+
+        instance.delete()
 
 class CreateQuestionWithOptionsView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]

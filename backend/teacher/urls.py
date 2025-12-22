@@ -12,6 +12,8 @@ from .views import (
     # challenge list views
     ChallengeListView,
     CreateClassroomChallengeView,
+    UpdateClassroomChallengeView,
+    DeleteClassroomChallengeView,
     CreateQuestionWithOptionsView,
 )
 
@@ -25,5 +27,7 @@ urlpatterns = [
     # challenge list urls
     path('challenge-list/', ChallengeListView.as_view(), name='Challenge List'),
     path('challenge-create/', CreateClassroomChallengeView.as_view(), name='Challenge Create'),
+    path('challenge-update/<uuid:pk>/', UpdateClassroomChallengeView.as_view(), name='Update Classroom'),
+    path('challenge-delete/<uuid:pk>/', DeleteClassroomChallengeView.as_view(), name='Delete Classroom'),
     path('question-create/', CreateQuestionWithOptionsView.as_view(), name='Question Create'),
 ]

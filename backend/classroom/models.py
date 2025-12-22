@@ -92,6 +92,7 @@ class ClassRoomChallenge(models.Model):
     )
     challenge_name = models.CharField()
     challenge_description = models.CharField()
+    points = models.PositiveIntegerField(default=0)
     visibility = models.CharField(
         max_length=10,
         choices=VISIBILITY_CHOICES,
