@@ -15,7 +15,7 @@ from classroom.models import (
 User = get_user_model()
 
 class ProfileSerializer(serializers.ModelSerializer):
-    profile_pic = serializers.SerializerMethodField()
+    profile_pic = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -31,12 +31,6 @@ class ProfileSerializer(serializers.ModelSerializer):
             'country',
         )
         read_only_fields = ('email',)
-
-
-    def get_profile_pic(self, obj):
-        if obj.profile_pic:
-            return obj.profile_pic.url
-        return None
 
 
 class MyClassroomSerializer(serializers.ModelSerializer):

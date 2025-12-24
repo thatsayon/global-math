@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import views, status, permissions, generics
 
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
 from administration.models import (
@@ -14,7 +15,10 @@ from .serializers import (
     ProfileInformationSerializer,
     ChangePasswordSerializer,
     SupportMessageSerializer,
+    OtherProfileSerializer,
 )
+
+User = get_user_model()
 
 class ProfileInformationView(generics.RetrieveUpdateAPIView):
     serializer_class = ProfileInformationSerializer
@@ -85,3 +89,12 @@ class HelpSupportView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+
+class OtherProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+
+        serializer = OtherProfileSerializer(user)
+        return Response(serializer.data)

@@ -67,7 +67,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostModel
         fields = (
-            "id", "text", "image",
+            "id", "user", "text", "image",
             "full_name", "profile_pic",
             "likes", "user_reaction", "post_level",
             "post_level_name", "created_at"

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 
+from post.models import PostModel
 from administration.models import MathLevels, SupportMessage
 
 User = get_user_model()
@@ -82,4 +83,57 @@ class SupportMessageSerializer(serializers.ModelSerializer):
 
     def get_send_by(self, obj):
         return "admin" if obj.sender.is_staff else "user"
+
+class LatestPostSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostModel
+        fields = (
+            'id',
+            'text',
+            'image',
+            'video',
+            'language',
+            'is_verified',
+            'created_at',
+        )
+
+    def get_image(self, obj):
+        return obj.image.url if obj.image else None
+
+    def get_video(self, obj):
+        return obj.video.url if obj.video else None
+
+
+class OtherProfileSerializer(serializers.ModelSerializer):
+    profile_pic = serializers.SerializerMethodField()
+    latest_post = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id',
+            'first_name',
+            'last_name',
+            'profile_pic',
+            'latest_post',
+        )
+
+    def get_profile_pic(self, obj):
+        return obj.profile_pic.url if obj.profile_pic else None
+
+    def get_latest_post(self, obj):
+        post = (
+            obj.posts
+            .filter()
+            .order_by('-created_at')
+            .first()
+        )
+
+        if not post:
+            return None
+
+        return LatestPostSerializer(post).data
 

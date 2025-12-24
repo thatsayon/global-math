@@ -7,6 +7,7 @@ from .views import (
     ProfileInformationView,
     ChangePasswordView,
     HelpSupportView,
+    OtherProfileView,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('classroom/', include('student.classroom.urls')),
 
     path('profile/', include('student.profile.urls')),
+    path('other-profile/<uuid:user_id>/', OtherProfileView.as_view(), name='Other User'),
 ]
