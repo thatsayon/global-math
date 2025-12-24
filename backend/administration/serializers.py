@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 
 from post.models import PostModel
 
@@ -9,6 +10,8 @@ from .models import (
     RecentActivity,
     MathLevels,
     PointAdjustment,
+    ActivityLog,
+    DailyChallenge,
 )
 User = get_user_model()
 
@@ -21,6 +24,18 @@ class RecentActivitySerializer(serializers.ModelSerializer):
             "created_at",
             "full_name",
             "role"
+        )
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityLog
+        fields = (
+            "id",
+            "title",
+            "message",
+            "affector_name",
+            "user_type",
+            "created_at",
         )
 
 
@@ -48,10 +63,13 @@ class OverViewSerializer(serializers.Serializer):
         return User.objects.filter(is_banned=True).count()
 
     def get_recent_activities(self, obj):
-        recent_activities = RecentActivity.objects.all().order_by('-created_at')[:5]
-        serializer = RecentActivitySerializer(recent_activities, many=True)
-        return serializer.data
+        activities = (
+            ActivityLog.objects
+            .all()
+            .order_by("-created_at")[:5]
+        )
 
+        return ActivityLogSerializer(activities, many=True).data
 
 class UserManagementSerializer(serializers.ModelSerializer):
     class Meta:
@@ -208,3 +226,38 @@ class ChallengeCreateSerializer(serializers.Serializer):
 
     questions = ChallengeQuestionInputSerializer(many=True)
 
+
+class DailyChallengeListSerializer(serializers.ModelSerializer):
+    subject = serializers.CharField(source='subject.name', read_only=True)
+    class Meta:
+        model = DailyChallenge
+        fields = (
+            'id',
+            'name',
+            'description',
+            'subject',
+            'number_of_questions',
+            'points',
+            'publishing_date'
+        )
+
+
+class DailyChallengeUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailyChallenge
+        fields = (
+            "name",
+            "description",
+            "points",
+            "publishing_date",
+        )
+
+    def validate_publishing_date(self, value):
+        today = timezone.now().date()
+
+        if value < today:
+            raise serializers.ValidationError(
+                "Publishing date cannot be in the past."
+            )
+
+        return value

@@ -19,6 +19,9 @@ from .views import (
     # ai question generation
     ChallengeGenerationView,
     CreateDailyChallengeView,
+    DailyChallengeListView,
+    DailyChallengeUpdateView,
+    DailyChallengeDeleteView,
 )
 
 urlpatterns = [
@@ -42,4 +45,7 @@ urlpatterns = [
     # ai question generation urls
     path('question-generation/', ChallengeGenerationView.as_view(), name='Challenge Generation'),
     path('create-challenge/', CreateDailyChallengeView.as_view(), name='Create Challenge'),
+    path('challenge-list/', DailyChallengeListView.as_view(), name='Daily Challenge'),
+    path('challenge-update/<uuid:challenge_id>/', DailyChallengeUpdateView.as_view(), name='Daily Challenge Update'),
+    path('challenge-delete/<uuid:challenge_id>/', DailyChallengeDeleteView.as_view(), name='Daily Challenge Delete'),
 ]

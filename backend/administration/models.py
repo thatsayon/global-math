@@ -130,5 +130,45 @@ class ChallengeQuestion(models.Model):
     def __str__(self):
         return f"Q{self.order}"
 
+class ActivityType(models.TextChoices):
+    USER_REGISTERED = "user_registered", "User Registered"
+    CLASSROOM_CREATED = "classroom_created", "Classroom Created"
+    CHALLENGE_CREATED = "challenge_created", "Challenge Created"
+    USER_BANNED = "user_banned", "User Banned"
+    AI_QUESTION_CREATED = "ai_question_created", "AI Question Created"
+
+
+
+class UserType(models.TextChoices):
+    STUDENT = "student", "Student"
+    TEACHER = "teacher", "Teacher"
+    ADMIN = "admin", "Admin"
+    USER = "user", "User"
+
+
+class ActivityLog(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+
+    affector_name = models.CharField(max_length=255)
+
+    user_type = models.CharField(
+        max_length=20,
+        choices=UserType.choices
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
 
 

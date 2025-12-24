@@ -9,6 +9,8 @@ from django.shortcuts import redirect, get_object_or_404
 from django.core.mail import EmailMultiAlternatives
 from django.utils.timezone import now
 
+from core.activity_logger import log_user_registered
+
 from .models import (
     OTP
 )
@@ -39,6 +41,11 @@ class RegisterView(generics.CreateAPIView):
         response_data = {
             "msg": "User registered successfully"
         }
+
+        try:
+            log_user_registered(f"{user.first_name} {user.last_name}")
+        except:
+            pass
 
         return Response(response_data, status=status.HTTP_201_CREATED)
 

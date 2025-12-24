@@ -18,6 +18,8 @@ from post.models import (
     PostModel,
 )
 
+from core.activity_logger import log_challenge_created
+
 from .serializers import (
     ProfileSerializer,
     MyClassroomSerializer,
@@ -183,6 +185,19 @@ class CreateClassroomChallengeView(generics.CreateAPIView):
 
     def get_serializer_context(self):
         return {"request": self.request}
+
+    def perform_create(self, serializer):
+        # 1️⃣ Create the challenge
+        challenge = serializer.save()
+
+        # 2️⃣ Log activity AFTER success
+        try:
+            log_challenge_created(
+                teacher_name=f"{self.request.user.first_name} {self.request.user.last_name}",
+                challenge_name=challenge.challenge_name
+            )
+        except:
+            pass
 
 class UpdateClassroomChallengeView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]

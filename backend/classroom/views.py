@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions, generics
 
+from core.activity_logger import log_classroom_created
+
 from .models import Classroom, ClassroomMemberList
 from .serializers import (
     JoinClassroomSerializer,
@@ -19,7 +21,17 @@ class CreateClassroomView(generics.ListCreateAPIView):
         return ClassroomDetailSerializer
         
     def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+        # 1️⃣ Create classroom
+        classroom = serializer.save(creator=self.request.user)
+
+        # 2️⃣ Log activity AFTER successful creation
+        try:
+            log_classroom_created(
+                teacher_name=f"{self.request.user.first_name} {self.request.user.last_name}",
+                classroom_name=classroom.name
+            )
+        except:
+            pass
 
 class JoinClassroomView(APIView):
     permission_classes = [permissions.IsAuthenticated]

@@ -5,6 +5,7 @@ from .models import (
     SupportMessage,
     DailyChallenge,
     ChallengeQuestion,
+    ActivityLog,
 )
 
 admin.site.register(RecentActivity)
@@ -12,3 +13,4 @@ admin.site.register(MathLevels)
 admin.site.register(SupportMessage)
 admin.site.register(DailyChallenge)
 admin.site.register(ChallengeQuestion)
+admin.site.register(ActivityLog)

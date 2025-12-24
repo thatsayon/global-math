@@ -31,6 +31,8 @@ from .serializers import (
     # ai question generation serializer
     ChallengeGenerationSerializer,
     ChallengeCreateSerializer,
+    DailyChallengeListSerializer,
+    DailyChallengeUpdateSerializer,
 )
 
 import os
@@ -303,3 +305,22 @@ class CreateDailyChallengeView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+class DailyChallengeListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = DailyChallengeListSerializer
+    queryset = DailyChallenge.objects.all()
+
+
+class DailyChallengeUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = DailyChallengeUpdateSerializer
+    queryset = DailyChallenge.objects.all()
+    lookup_url_kwarg = "challenge_id"
+    http_method_names = ["patch", "put"]
+
+
+
+class DailyChallengeDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    queryset = DailyChallenge.objects.all()
+    lookup_url_kwarg = "challenge_id"
