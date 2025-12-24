@@ -137,6 +137,8 @@ class OtherProfileSerializer(serializers.ModelSerializer):
             "id",
             "first_name",
             "last_name",
+            "username",
+            "email",
             "profile_pic",
         )
 
