@@ -16,6 +16,10 @@ from .serializers import (
     ChangePasswordSerializer,
     SupportMessageSerializer,
     OtherProfileSerializer,
+    LatestPostSerializer,
+)
+from .pagination import (
+    LatestPostPagination,
 )
 
 User = get_user_model()
@@ -90,11 +94,27 @@ class HelpSupportView(APIView):
         )
 
 
-class OtherProfileView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
+class OtherProfileView(APIView):
     def get(self, request, user_id):
         user = get_object_or_404(User, id=user_id)
 
-        serializer = OtherProfileSerializer(user)
-        return Response(serializer.data)
+        # paginate posts
+        posts_qs = user.posts.order_by("-created_at")
+        paginator = LatestPostPagination()
+        page = paginator.paginate_queryset(posts_qs, request)
+
+        posts_data = LatestPostSerializer(page, many=True).data
+
+        # build paginated structure manually
+        latest_post = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": posts_data,
+        }
+
+        user_data = OtherProfileSerializer(user).data
+        user_data["latest_post"] = latest_post
+
+        return Response(user_data)

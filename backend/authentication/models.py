@@ -54,7 +54,8 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     profile_pic = CloudinaryField(_("profile pic"), blank=True, null=True)
     gender = models.CharField(_("gender"), choices=[
         ('male', 'Male'),
-        ('female', 'Female')
+        ('female', 'Female'),
+        ('other', 'Other')
     ])
     role = models.CharField(_("role"), choices=[
         ('student', 'Student'),
