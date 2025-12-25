@@ -8,6 +8,7 @@ from .views import (
     ChangePasswordView,
     HelpSupportView,
     OtherProfileView,
+    StudentDashboardView,
 )
 
 urlpatterns = [

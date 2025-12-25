@@ -4,6 +4,9 @@ from django.contrib.auth.hashers import check_password
 
 from post.models import PostModel
 from administration.models import MathLevels, SupportMessage
+from account.models import (
+    EarnedBadge,
+)
 
 User = get_user_model()
 
@@ -144,4 +147,34 @@ class OtherProfileSerializer(serializers.ModelSerializer):
 
     def get_profile_pic(self, obj):
         return obj.profile_pic.url if obj.profile_pic else None
+
+
+# student activity serializers
+class StudentProgressSerializer(serializers.Serializer):
+    total_points = serializers.IntegerField()
+    level = serializers.IntegerField()
+    next_level_points = serializers.IntegerField()
+    points_to_next_level = serializers.IntegerField()
+
+class CalendarDaySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    points = serializers.IntegerField()
+    active = serializers.BooleanField()
+
+class EarnedBadgeSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="badge.name")
+    icon = serializers.CharField(source="badge.icon")
+
+    class Meta:
+        model = EarnedBadge
+        fields = ("name", "icon", "earned_at")
+
+class StudentDashboardSerializer(serializers.Serializer):
+    progress = StudentProgressSerializer()
+    current_streak = serializers.IntegerField()
+    longest_streak = serializers.IntegerField()
+    calendar = CalendarDaySerializer(many=True)
+    badges = EarnedBadgeSerializer(many=True)
+
+
 

@@ -7,6 +7,7 @@ from post.tasks import run_nudity_check, translate_post_task
 from core.utils import translate_text
 
 from administration.models import MathLevels
+from student.utils import award_badge_by_code
 
 from .models import (
     PostModel,
@@ -35,6 +36,9 @@ class PostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get('request')
         user = request.user
+        student = user.account.student
+
+        is_first_post = not PostModel.objects.filter(user=user).exists()
 
         classroom = validated_data.pop('classroom', None)
 
@@ -53,6 +57,11 @@ class PostSerializer(serializers.ModelSerializer):
         
         translate_post_task.delay(str(post.id))
 
+        if is_first_post:
+            try:
+                award_badge_by_code(student, "first_step")
+            except:
+                pass
         return post
 
 class PostFeedSerializer(serializers.ModelSerializer):

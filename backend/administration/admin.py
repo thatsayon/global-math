@@ -7,6 +7,7 @@ from .models import (
     ChallengeQuestion,
     ActivityLog,
 )
+from account.models import Badge
 
 admin.site.register(RecentActivity)
 admin.site.register(MathLevels)
@@ -14,3 +15,4 @@ admin.site.register(SupportMessage)
 admin.site.register(DailyChallenge)
 admin.site.register(ChallengeQuestion)
 admin.site.register(ActivityLog)
+admin.site.register(Badge)
