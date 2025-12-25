@@ -9,11 +9,13 @@ class ProfileTopSerializer(serializers.ModelSerializer):
     streak = serializers.SerializerMethodField()
     badges = serializers.SerializerMethodField()
     accuracy = serializers.SerializerMethodField()
+    profile_pic = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "id",
+            "profile_pic",
             "first_name",
             "last_name",
             "country",
@@ -23,6 +25,10 @@ class ProfileTopSerializer(serializers.ModelSerializer):
             "accuracy",
         )
 
+    def get_profile_pic(self, obj):
+        if obj.profile_pic:
+            return obj.profile_pic.url
+        return None 
     # ---------- helpers ----------
 
     def _get_student(self, obj):
