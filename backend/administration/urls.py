@@ -22,6 +22,11 @@ from .views import (
     DailyChallengeListView,
     DailyChallengeUpdateView,
     DailyChallengeDeleteView,
+    ChallengeQuestionListView,
+    ChallengeQuestionUpdateView,
+    ChallengeQuestionDeleteView,
+
+    AnalyticsReportAPIView,
 )
 
 urlpatterns = [
@@ -48,4 +53,9 @@ urlpatterns = [
     path('challenge-list/', DailyChallengeListView.as_view(), name='Daily Challenge'),
     path('challenge-update/<uuid:challenge_id>/', DailyChallengeUpdateView.as_view(), name='Daily Challenge Update'),
     path('challenge-delete/<uuid:challenge_id>/', DailyChallengeDeleteView.as_view(), name='Daily Challenge Delete'),
+    path('question-list/<uuid:challenge_id>/', ChallengeQuestionListView.as_view(), name='Question List'),
+    path('question-update/<uuid:question_id>/', ChallengeQuestionUpdateView.as_view(), name='Question Update'),
+    path('question-delete/<uuid:question_id>/', ChallengeQuestionDeleteView.as_view(), name='Question Delete'),
+
+    path('analytics/', AnalyticsReportAPIView.as_view(), name='Analytics'),
 ]

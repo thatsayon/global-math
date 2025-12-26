@@ -2,11 +2,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, static, permissions, status, filters
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.pagination import PageNumberPagination
 
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models.functions import TruncMonth, ExtractYear
+from django.db.models import Count, Sum, Max
 from django.db import transaction
 
+from datetime import datetime
+
+from account.models import (
+    StudentProfile,
+)
+from administration.models import DailyChallenge, ActivityLog
 from .models import (
     MathLevels,
     PointAdjustment,
@@ -33,6 +42,7 @@ from .serializers import (
     ChallengeCreateSerializer,
     DailyChallengeListSerializer,
     DailyChallengeUpdateSerializer,
+    ChallengeQuestionSerializer,
 )
 
 import os
@@ -61,10 +71,10 @@ class UserManagementView(AdminBaseView, generics.ListAPIView):
 class ModerationView(AdminBaseView, APIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["username", "first_name", "last_name", "email"]
-    filterset_fields = ["is_banned"]
+    filterset_fields = ["is_banned", "role"]
 
     def get(self, request):
-        users = User.objects.filter(role="student")
+        users = User.objects.all()
 
         for backend in list(self.filter_backends):
             users = backend().filter_queryset(self.request, users, self)
@@ -74,7 +84,10 @@ class ModerationView(AdminBaseView, APIView):
             "users": users,
         }
 
-        serializer = ModerationSerializer(instance=data, context={"request": request})
+        serializer = ModerationSerializer(
+            instance=data,
+            context={"request": request}
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class BanUserView(AdminBaseView, APIView):
@@ -308,7 +321,16 @@ class CreateDailyChallengeView(APIView):
 class DailyChallengeListView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = DailyChallengeListSerializer
-    queryset = DailyChallenge.objects.all()
+
+    def get_queryset(self):
+        queryset = DailyChallenge.objects.select_related("subject")
+
+        subject_slug = self.request.query_params.get("subject")
+
+        if subject_slug:
+            queryset = queryset.filter(subject__slug=subject_slug)
+
+        return queryset.order_by("-publishing_date")
 
 
 class DailyChallengeUpdateView(generics.UpdateAPIView):
@@ -324,3 +346,179 @@ class DailyChallengeDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAdminUser]
     queryset = DailyChallenge.objects.all()
     lookup_url_kwarg = "challenge_id"
+
+
+class ChallengeQuestionListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = ChallengeQuestionSerializer
+
+    def get_queryset(self):
+        challenge_id = self.kwargs["challenge_id"]
+        return (
+            ChallengeQuestion.objects
+            .filter(challenge_id=challenge_id)
+            .order_by("order")
+        )
+
+class ChallengeQuestionUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = ChallengeQuestionSerializer
+    queryset = ChallengeQuestion.objects.all()
+    lookup_url_kwarg = "question_id"
+    http_method_names = ["patch", "put"]
+
+
+class ChallengeQuestionDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    queryset = ChallengeQuestion.objects.all()
+    lookup_url_kwarg = "question_id"
+
+
+class AnalyticsPagination(PageNumberPagination):
+    page_size = 10
+
+class AnalyticsReportAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AnalyticsPagination
+
+    def get(self, request):
+        year = int(request.query_params.get("year", datetime.now().year))
+
+        # =========================
+        # SUMMARY
+        # =========================
+        summary = {
+            "total_users": User.objects.count(),
+            "active_users": User.objects.filter(
+                is_active=True,
+                is_banned=False
+            ).count(),
+            "total_challenges": DailyChallenge.objects.count(),
+        }
+
+        # =========================
+        # AVAILABLE YEARS (for dropdown)
+        # =========================
+        available_years = (
+            User.objects
+            .annotate(year=ExtractYear("date_joined"))
+            .values_list("year", flat=True)
+            .distinct()
+            .order_by("-year")
+        )
+
+        # =========================
+        # USAGE ANALYTICS (CHART)
+        # =========================
+        user_registrations = (
+            User.objects
+            .filter(date_joined__year=year)
+            .annotate(month=TruncMonth("date_joined"))
+            .values("month")
+            .annotate(users=Count("id"))
+        )
+
+        engagement = (
+            StudentProfile.objects
+            .filter(daily_activities__date__year=year)
+            .annotate(month=TruncMonth("daily_activities__date"))
+            .values("month")
+            .annotate(engagement=Count("id", distinct=True))
+        )
+
+        activity = (
+            ActivityLog.objects
+            .filter(created_at__year=year)
+            .annotate(month=TruncMonth("created_at"))
+            .values("month")
+            .annotate(activity=Count("id"))
+        )
+
+        month_map = {}
+
+        def month_key(dt):
+            return dt.strftime("%b")
+
+        for row in user_registrations:
+            key = month_key(row["month"])
+            month_map[key] = {
+                "month": key,
+                "users": row["users"],
+                "engagement": 0,
+                "activity": 0,
+            }
+
+        for row in engagement:
+            key = month_key(row["month"])
+            month_map.setdefault(key, {
+                "month": key,
+                "users": 0,
+                "engagement": 0,
+                "activity": 0,
+            })
+            month_map[key]["engagement"] = row["engagement"]
+
+        for row in activity:
+            key = month_key(row["month"])
+            month_map.setdefault(key, {
+                "month": key,
+                "users": 0,
+                "engagement": 0,
+                "activity": 0,
+            })
+            month_map[key]["activity"] = row["activity"]
+
+        usage_analytics = sorted(
+            month_map.values(),
+            key=lambda x: datetime.strptime(x["month"], "%b").month
+        )
+
+        # =========================
+        # STUDENT ENGAGEMENT TABLE
+        # =========================
+        students_qs = (
+            StudentProfile.objects
+            .select_related("account__user")
+            .annotate(
+                total_points=Sum("daily_activities__points_earned"),
+                last_active=Max("daily_activities__date"),
+            )
+            .order_by("-total_points")
+        )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(students_qs, request)
+
+        table_data = []
+        start_index = paginator.page.start_index()
+
+        for idx, student in enumerate(page, start=start_index):
+            user = student.account.user
+            points = student.total_points or 0
+
+            engagement_score = min(100, int((points / 500) * 100))
+
+            table_data.append({
+                "no": idx,
+                "id": str(user.id),
+                "name": f"{user.first_name} {user.last_name}",
+                "role": user.role,
+                "profile_pic": user.profile_pic.url if user.profile_pic else None,
+                "challenges": student.daily_activities.count(),
+                "engagement_score": engagement_score,
+                "last_active": student.last_active,
+            })
+
+        student_engagement = paginator.get_paginated_response(table_data).data
+
+        # =========================
+        # FINAL RESPONSE
+        # =========================
+        return Response({
+            "summary": summary,
+            "available_years": list(available_years),
+            "selected_year": year,
+            "usage_analytics": usage_analytics,
+            "student_engagement": student_engagement
+        })
+

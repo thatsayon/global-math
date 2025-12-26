@@ -12,6 +12,7 @@ from .models import (
     PointAdjustment,
     ActivityLog,
     DailyChallenge,
+    ChallengeQuestion,
 )
 User = get_user_model()
 
@@ -261,3 +262,14 @@ class DailyChallengeUpdateSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+
+class ChallengeQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChallengeQuestion
+        fields = (
+            "id",
+            "order",
+            "question_text",
+            "answer",
+        )
