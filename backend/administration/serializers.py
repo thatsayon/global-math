@@ -13,6 +13,9 @@ from .models import (
     ActivityLog,
     DailyChallenge,
     ChallengeQuestion,
+
+    SupportMessage,
+    SupportTicket,
 )
 User = get_user_model()
 
@@ -273,3 +276,47 @@ class ChallengeQuestionSerializer(serializers.ModelSerializer):
             "question_text",
             "answer",
         )
+
+
+# support serializer
+class SupportTicketListSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.username", read_only=True)
+    user_role = serializers.CharField(source="user.role", read_only=True)
+    last_message = serializers.SerializerMethodField()
+    last_message_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupportTicket
+        fields = (
+            "id",
+            "user_name",
+            "user_role",
+            "is_closed",
+            "created_at",
+            "last_message",
+            "last_message_time",
+        )
+
+    def get_last_message(self, obj):
+        msg = obj.messages.last()
+        return msg.message if msg else None
+
+    def get_last_message_time(self, obj):
+        msg = obj.messages.last()
+        return msg.created_at if msg else obj.created_at
+
+
+class SupportMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.username", read_only=True)
+    sender_role = serializers.CharField(source="sender.role", read_only=True)
+
+    class Meta:
+        model = SupportMessage
+        fields = (
+            "id",
+            "sender_name",
+            "sender_role",
+            "message",
+            "created_at",
+        )
+

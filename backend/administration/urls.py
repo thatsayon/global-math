@@ -15,6 +15,7 @@ from .views import (
 
     # setting views
     PointAdjustmentView,
+    AnalyticsReportAPIView,
 
     # ai question generation
     ChallengeGenerationView,
@@ -26,7 +27,10 @@ from .views import (
     ChallengeQuestionUpdateView,
     ChallengeQuestionDeleteView,
 
-    AnalyticsReportAPIView,
+    # support views
+    SupportInboxView,
+    SupportMessageListView,
+    SupportReplyView,
 )
 
 urlpatterns = [
@@ -35,6 +39,7 @@ urlpatterns = [
     path('moderation/', ModerationView.as_view(), name='User Management'),
     path('ban/', BanUserView.as_view(), name='User Ban'),
     path('unban/', UnbanUserView.as_view(), name='User Unban'),
+    path('analytics/', AnalyticsReportAPIView.as_view(), name='Analytics'),
 
     # profile urls
     path('profile/', AdminProfileAPIView.as_view(), name='Profile'),
@@ -57,5 +62,8 @@ urlpatterns = [
     path('question-update/<uuid:question_id>/', ChallengeQuestionUpdateView.as_view(), name='Question Update'),
     path('question-delete/<uuid:question_id>/', ChallengeQuestionDeleteView.as_view(), name='Question Delete'),
 
-    path('analytics/', AnalyticsReportAPIView.as_view(), name='Analytics'),
+    # support urls
+    path('support-message/', SupportInboxView.as_view(), name='Support View'),
+    path('support-message/<uuid:ticket_id>/', SupportMessageListView.as_view(), name='Support Message List'),
+    path('support-message-reply/<uuid:ticket_id>/', SupportReplyView.as_view(), name='Support Message Reply'),
 ]

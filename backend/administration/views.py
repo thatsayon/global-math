@@ -7,7 +7,17 @@ from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models.functions import TruncMonth, ExtractYear
-from django.db.models import Count, Sum, Max
+from django.db.models import (
+    Count, 
+    Sum, 
+    Max,
+    OuterRef, 
+    Subquery,
+    Case,
+    When,
+    Value,
+    IntegerField,
+)
 from django.db import transaction
 
 from datetime import datetime
@@ -21,6 +31,8 @@ from .models import (
     PointAdjustment,
     DailyChallenge,
     ChallengeQuestion,
+    SupportMessage,
+    SupportTicket,
 )
 
 from .serializers import (
@@ -43,6 +55,10 @@ from .serializers import (
     DailyChallengeListSerializer,
     DailyChallengeUpdateSerializer,
     ChallengeQuestionSerializer,
+
+    # support serializers
+    SupportTicketListSerializer,
+    SupportMessageSerializer,
 )
 
 import os
@@ -521,4 +537,79 @@ class AnalyticsReportAPIView(APIView):
             "usage_analytics": usage_analytics,
             "student_engagement": student_engagement
         })
+
+
+class SupportPagination(PageNumberPagination):
+    page_size = 5
+
+
+class SupportInboxView(generics.ListAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = SupportTicketListSerializer
+    pagination_class = SupportPagination
+
+    def get_queryset(self):
+        last_message_sender = SupportMessage.objects.filter(
+            ticket=OuterRef("pk")
+        ).order_by("-created_at").values("sender__role")[:1]
+
+        queryset = (
+            SupportTicket.objects
+            .annotate(
+                last_sender_role=Subquery(last_message_sender),
+                priority=Case(
+                    When(last_sender_role__in=["student", "teacher"], then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                ),
+            )
+            .order_by("priority", "-created_at")
+        )
+
+        return queryset
+
+
+class SupportMessageListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = SupportMessageSerializer
+
+    def get_queryset(self):
+        ticket_id = self.kwargs["ticket_id"]
+        return (
+            SupportMessage.objects
+            .filter(ticket_id=ticket_id)
+            .order_by("-created_at")  
+        )
+
+
+class SupportReplyView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, ticket_id):
+        message_text = request.data.get("message")
+
+        if not message_text:
+            return Response(
+                {"error": "Message is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            ticket = SupportTicket.objects.get(id=ticket_id)
+        except SupportTicket.DoesNotExist:
+            return Response(
+                {"error": "Ticket not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        SupportMessage.objects.create(
+            ticket=ticket,
+            sender=request.user,
+            message=message_text
+        )
+
+        return Response(
+            {"message": "Reply sent successfully"},
+            status=status.HTTP_201_CREATED
+        )
 
