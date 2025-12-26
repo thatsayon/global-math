@@ -34,6 +34,23 @@ class PostCreateView(APIView):
             status=status.HTTP_200_OK
         )
 
+class PostDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "post_id"
+
+    def get_queryset(self):
+        # Limit queryset to authenticated user's posts only
+        return PostModel.objects.filter(user=self.request.user)
+
+    def get_object(self):
+        obj = super().get_object()
+
+        if obj.user != self.request.user:
+            raise PermissionDenied("You do not have permission to delete this post.")
+
+        return obj
+
+
 class PostFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
