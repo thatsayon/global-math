@@ -1,3 +1,4 @@
+import { Summary } from "@/types/analytics.type";
 import { loginRequest, loginResponse } from "@/types/auth.type";
 import { UserRequest, UsersResponse } from "@/types/user.type";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
@@ -22,7 +23,7 @@ export const apiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["User", "Profile", "Level", "Moderation", "Challenge", "Question", "PointAdjustment","Analytics"],
+  tagTypes: ["User", "Profile", "Level", "Moderation", "Challenge", "Question", "PointAdjustment","Analytics", "Conversation", "Leaderboard"],
 
   endpoints: (builder) => ({
     // auth endpoints _-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_
@@ -48,20 +49,11 @@ export const apiSlice = createApi({
         },
         method: "GET",
       }),
-      providesTags: (result) =>
-        result
-          ? [
-              {
-                type: "User",
-                id: "LIST",
-              },
-              ...result.results.map(({ id }) => ({
-                type: "User" as const,
-                id,
-              })),
-            ]
-          : [{ type: "User", id: "LIST" }],
+      providesTags: ["User"]
     }),
+    getTopCardInfo: builder.query<Summary, void>({
+      query: ()=> "/admin-api/top/"
+    })
   }),
 });
 
@@ -70,4 +62,5 @@ export const {
   useLoginMutation,
   // user endpoints
   useGetUsersQuery,
+  useGetTopCardInfoQuery
 } = apiSlice;

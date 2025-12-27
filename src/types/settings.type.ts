@@ -14,6 +14,7 @@ export interface UpdateProfileResponse {
   first_name: string;
   last_name: string;
   profile_pic: string | null;
+  access_token: string;
 }
 
 export interface ChangePasswordRequest {

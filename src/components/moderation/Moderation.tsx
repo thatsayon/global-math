@@ -33,7 +33,7 @@ function Moderation() {
       iconBg: "#ede9fe",
     },
     {
-      title: "Challenges",
+      title: "Classroom Challenges",
       value: data?.top.total_challenge || 0,
       icon: Trophy,
       iconColor: "#f59e0b",

@@ -17,6 +17,7 @@ import { useGetAnalyticsQuery } from "@/store/slices/api/analyticsApiSlice";
 import PlatformLineChart from "@/components/analytics/PlatformLineChart";
 import EngagementTable from "@/components/analytics/EngagementTable";
 import StatCard from "../ui/StatChard";
+import { LoadingState } from "../elements/Loading";
 
 function Analytics() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -42,7 +43,7 @@ function Analytics() {
   }, [availableYears, currentYear, selectedYear]);
 
   if (isLoading) {
-    return <div className="p-6 text-center">Loading analytics...</div>;
+    return <LoadingState/>
   }
 
   return (

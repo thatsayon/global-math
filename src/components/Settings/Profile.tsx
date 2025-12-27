@@ -16,6 +16,7 @@ import {
   useGetProfileQuery,
   useUpdateProfileMutation,
 } from "@/store/slices/api/profileApiSlice";
+import { setCookie } from "@/hooks/cookie";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -92,11 +93,16 @@ export default function Profile() {
 
   const onProfileSubmit = async (data: ProfileFormData) => {
     try {
-      await updateProfile({
+      const response = await updateProfile({
         first_name: data.firstName,
         last_name: data.lastName,
         profile_pic: selectedFile || undefined,
       }).unwrap();
+
+      if(!response.access_token) {
+        return toast.error(response.first_name)
+      }
+      setCookie("access_token", response.access_token,1)
 
       toast.success("Profile Updated", {
         description: "Your profile has been updated successfully.",
