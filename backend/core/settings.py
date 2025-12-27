@@ -33,6 +33,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://api.mathos.cloud",
     "http://72.60.117.30:3001",
+    "https://mathos.cloud",
 ]
 
 CORS_ALLOW_METHODS = [
@@ -48,6 +49,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "https://api.mathos.cloud",
     "http://72.60.117.30:3001",
+    "https://mathos.cloud",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
