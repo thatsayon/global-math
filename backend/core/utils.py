@@ -1,6 +1,6 @@
 import requests
 
-LIBRETRANSLATE_URL = "http://localhost:8080/translate"  # Or public API
+LIBRETRANSLATE_URL = "http://localhost:5000/translate"  # Or public API
 
 def translate_text(text, target_lang, source_lang='en'):
     if not text or target_lang == source_lang:
