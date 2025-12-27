@@ -5,6 +5,8 @@ from .views import (
     ModerationView,
     BanUserView,
     UnbanUserView,
+    LeaderboardAPIView,
+    TopPartView,
 
     # profile views
     AdminProfileAPIView,
@@ -40,6 +42,8 @@ urlpatterns = [
     path('ban/', BanUserView.as_view(), name='User Ban'),
     path('unban/', UnbanUserView.as_view(), name='User Unban'),
     path('analytics/', AnalyticsReportAPIView.as_view(), name='Analytics'),
+    path('leaderboard/', LeaderboardAPIView.as_view(), name='Leaderboard'),
+    path('top/', TopPartView.as_view(), name='Top'),
 
     # profile urls
     path('profile/', AdminProfileAPIView.as_view(), name='Profile'),

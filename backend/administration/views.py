@@ -24,8 +24,11 @@ from datetime import datetime
 
 from account.models import (
     StudentProfile,
+    StudentProgress,
 )
 from administration.models import DailyChallenge, ActivityLog
+from post.models import PostModel
+
 from .models import (
     MathLevels,
     PointAdjustment,
@@ -613,3 +616,65 @@ class SupportReplyView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+class LeaderboardAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """
+        Returns ranked users with profile image and progress data
+        """
+
+        queryset = (
+            StudentProgress.objects
+            .select_related(
+                "student__account__user"
+            )
+            .order_by("-total_points", "student__id")
+        )
+
+        data = []
+        for idx, progress in enumerate(queryset, start=1):
+            user = progress.student.account.user
+
+            # Status logic (customizable)
+            if progress.level < 10:
+                status = "need_to_level_up"
+            else:
+                status = "normal"
+
+            data.append({
+                "rank": idx,
+                "user_id": str(user.id),
+                "username": user.username,
+                "profile_pic": (
+                    user.profile_pic.url
+                    if user.profile_pic
+                    else None
+                ),
+                "level": progress.level,
+                "total_points": progress.total_points,
+                "status": status,
+            })
+
+        return Response({
+            "count": len(data),
+            "results": data
+        })
+
+
+
+class TopPartView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        data = {
+            "total_users": User.objects.count(),
+            "active_users": User.objects.filter(
+                is_active=True,
+                is_banned=False
+            ).count(),
+            "total_posts": PostModel.objects.count(),
+            "challenges": DailyChallenge.objects.count(),
+        }
+
+        return Response(data)
