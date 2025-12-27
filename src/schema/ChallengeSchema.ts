@@ -33,4 +33,14 @@ export const ChallengeSchema = z.object({
     }),
 })
 
+
+export const challengeUpdateSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  points: z.coerce.number().int().min(1, "Points must be at least 1"),
+  publishing_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+});
+
 export type ChallengeFormData = z.infer<typeof ChallengeSchema>

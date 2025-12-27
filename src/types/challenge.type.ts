@@ -49,3 +49,26 @@ export interface CreateChallengeResponse {
   id: string
   message: string
 }
+export interface Challenge {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  number_of_questions: number;
+  points: number;
+  publishing_date: string;
+}
+export interface ChallengeListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Challenge[];
+}
+
+export interface ChallengeUpdateRequest {
+  question: string;
+  answer: string;
+  publish_date: string;
+}
+
+export type ChallengeUpdateResponse = ChallengeUpdateRequest;

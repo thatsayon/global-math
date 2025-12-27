@@ -1,13 +1,7 @@
 "use client";
-import React, { useState } from "react";
-import {
-  Users,
-  UserCheck,
-  MessageSquare,
-  Trophy,
-  LayoutGrid,
-  TrendingUp,
-} from "lucide-react";
+
+import React, { useState, useEffect } from "react";
+import { TrendingUp, LayoutGrid, UserCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -16,31 +10,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, Activity, Trophy } from "lucide-react";
 
-import PlatformLineChart from "./PlatformLineChart";
-import EngagementTable from "./EngagementTable";
-import StatCard, { StatCardProps } from "../ui/StatChard";
-import { statCards } from "@/data/StatCardData";
+import { useGetAnalyticsQuery } from "@/store/slices/api/analyticsApiSlice";
+import PlatformLineChart from "@/components/analytics/PlatformLineChart";
+import EngagementTable from "@/components/analytics/EngagementTable";
+import StatCard from "../ui/StatChard";
 
-
-
-const Analytics: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  const [timeRange, setTimeRange] = useState("2025");
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) =>
-    (currentYear - i).toString()
+function Analytics() {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(
+    undefined
   );
+  const [tablePage, setTablePage] = useState(1);
+
+  const { data: analytics, isLoading } = useGetAnalyticsQuery({
+    year: selectedYear,
+    page: tablePage,
+  });
+
+  const summary = analytics?.summary;
+  const availableYears = analytics?.available_years || [];
+  const currentYear = analytics?.selected_year || new Date().getFullYear();
+
+  // Auto-select first available year if none selected
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) {
+      setSelectedYear(currentYear);
+    }
+  }, [availableYears, currentYear, selectedYear]);
+
+  if (isLoading) {
+    return <div className="p-6 text-center">Loading analytics...</div>;
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       <div className="space-y-5">
-        {/* Stats Cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {statCards.map((card, index) => (
-            <StatCard key={index} {...card} />
-          ))}
+          <StatCard
+            title="Total Users"
+            value={summary?.total_users || 0}
+            icon={Users}
+            iconColor="#3b82f6"
+            iconBg="#dbeafe"
+          />
+
+          <StatCard
+            title="Active Users"
+            value={summary?.active_users || 0}
+            icon={UserCheck}
+            iconColor="#10b981"
+            iconBg="#d1fae5"
+          />
+
+          <StatCard
+            title="Total Challenges"
+            value={summary?.total_challenges || 0}
+            icon={Trophy}
+            iconColor="#8b5cf6"
+            iconBg="#e9d5ff"
+          />
         </div>
 
         {/* Tabs Section */}
@@ -62,34 +94,60 @@ const Analytics: React.FC = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="">
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="mt-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-sm md:text-lg font-medium">
                 Platform Usage Analytics
               </h2>
-              <Select value={timeRange} onValueChange={setTimeRange}>
+              <Select
+                value={selectedYear?.toString() || ""}
+                onValueChange={(v) => {
+                  setSelectedYear(v ? Number(v) : undefined);
+                  setTablePage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
                 <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year} value={year}>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <PlatformLineChart timeRange={timeRange} />
+            <PlatformLineChart
+              usageAnalytics={analytics?.usage_analytics || []}
+              selectedYear={analytics?.selected_year || currentYear}
+            />
           </TabsContent>
 
+          {/* Engagement Tab */}
           <TabsContent value="engagement" className="mt-6">
-            <EngagementTable />
+            <EngagementTable
+              engagementData={
+                analytics?.student_engagement || {
+                  count: 0,
+                  results: [],
+                  next: null,
+                  previous: null,
+                }
+              }
+              currentPage={tablePage}
+              onPageChange={(page) => {
+                setTablePage(page);
+                // Scroll to top of table when changing page
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
-};
+}
 
 export default Analytics;

@@ -22,7 +22,7 @@ export const apiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["User", "Profile", "Level", "Moderation"],
+  tagTypes: ["User", "Profile", "Level", "Moderation", "Challenge", "Question", "PointAdjustment","Analytics"],
 
   endpoints: (builder) => ({
     // auth endpoints _-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_

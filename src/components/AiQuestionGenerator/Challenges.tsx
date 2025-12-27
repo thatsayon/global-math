@@ -1,6 +1,8 @@
-"use client"
+"use client";
+
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -8,14 +10,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "@/components/ui/select";
 import {
   Pagination,
   PaginationContent,
@@ -23,327 +25,274 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "../ui/pagination";
-import { Badge } from "../ui/badge";
-import { Calendar } from "../ui/calendar";
+} from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../ui/popover";
-import { Button } from "../ui/button";
-import { ChevronDown } from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Eye, Edit3, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-type Challenge = {
-  id: string;
-  question: string;
-  answer: string;
-  subject: string;
-  status: "Published" | "Pending";
-  publishDate: Date;
-};
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Challenge } from "@/types/challenge.type";
+import { useDeleteDailyChallengeMutation, useGetDailyChallengesQuery, useGetSubjectsQuery, useUpdateDailyChallengeMutation } from "@/store/slices/api/challengeApi";
+import { challengeUpdateSchema } from "@/schema/ChallengeSchema";
 
-// Dummy data
-const generateDummyChallenges = (): Challenge[] => {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const nextWeek = new Date(today);
-  nextWeek.setDate(nextWeek.getDate() + 7);
-
-  return [
-    {
-      id: "1",
-      question: "Simplify: 12-(3+5)-2[2 - (3 + 5)] times 2[2-(3+5)-2",
-      answer: "12-(3+5)x2-12-8x2-12-16-4",
-      subject: "Pre- Algebra Level 1",
-      status: "Pending",
-      publishDate: tomorrow,
-    },
-    {
-      id: "2",
-      question: "A pack has 48 pencils. If 12 students share them equally, how many pencils per student?",
-      answer: "48÷12=4 pencils",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: yesterday,
-    },
-    {
-      id: "3",
-      question: "If one notebook costs $7, how much will 5 notebooks cost?",
-      answer: "5 notebooks × $7 each = $35.",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: twoDaysAgo,
-    },
-    {
-      id: "4",
-      question: "A box has 36 candies. If 9 kids share them equally, how many candies does each get?",
-      answer: "36 candies ÷ 9 kids = 4 candies per kid.",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: new Date(2025, 3, 5),
-    },
-    {
-      id: "5",
-      question: "A pack has 48 pencils. If 12 students share them equally, how many pencils per student?",
-      answer: "Pattern multiples by 2: next three terms are 80, 160, 320.",
-      subject: "Pre- Algebra Level 1",
-      status: "Pending",
-      publishDate: tomorrow,
-    },
-    {
-      id: "6",
-      question: "If a pizza costs $15 and you have $60, how many pizzas can you buy?",
-      answer: "60÷15=4 pizzas",
-      subject: "Pre- Algebra Level 1",
-      status: "Pending",
-      publishDate: nextWeek,
-    },
-    {
-      id: "7",
-      question: "What is 25% of 200?",
-      answer: "50",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: yesterday,
-    },
-    {
-      id: "8",
-      question: "Solve: 3x + 7 = 22",
-      answer: "x = 5",
-      subject: "Pre- Algebra Level 1",
-      status: "Pending",
-      publishDate: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000),
-    },
-    {
-      id: "9",
-      question: "What is the perimeter of a rectangle with length 8 and width 5?",
-      answer: "26 units",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: new Date(2025, 2, 15),
-    },
-    {
-      id: "10",
-      question: "If 5 apples cost $10, how much does 1 apple cost?",
-      answer: "$2",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: new Date(2025, 1, 10),
-    },
-    {
-      id: "11",
-      question: "Solve: 3x + 7 = 22",
-      answer: "x = 5",
-      subject: "Pre- Algebra Level 1",
-      status: "Pending",
-      publishDate: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000),
-    },
-    {
-      id: "12",
-      question: "What is the perimeter of a rectangle with length 8 and width 5?",
-      answer: "26 units",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: new Date(2025, 2, 15),
-    },
-    {
-      id: "13",
-      question: "If 5 apples cost $10, how much does 1 apple cost?",
-      answer: "$2",
-      subject: "Pre- Algebra Level 1",
-      status: "Published",
-      publishDate: new Date(2025, 1, 10),
-    },
-  ];
+type FormValues = {
+  name: string;
+  description: string;
+  points: number;
+  publishing_date: string;
 };
 
 function Challenges() {
-  const [challenges, setChallenges] = useState<Challenge[]>(generateDummyChallenges());
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [selectedSubject, setSelectedSubject] = useState<string>("all");
-  const [openDatePicker, setOpenDatePicker] = useState<string | null>(null);
-  const itemsPerPage = 8;
+  const router = useRouter();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedSubjectSlug, setSelectedSubjectSlug] = useState<string>("all");
 
-  // Get unique subjects
-  const subjects = ["all", ...Array.from(new Set(challenges.map(c => c.subject)))];
-
-  // Filter challenges
-  const filteredChallenges = challenges.filter(challenge => 
-    selectedSubject === "all" || challenge.subject === selectedSubject
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(
+    null
   );
 
-  // Pagination
-  const totalPages = Math.ceil(filteredChallenges.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedChallenges = filteredChallenges.slice(startIndex, endIndex);
+  const { data: subjectsData } = useGetSubjectsQuery();
 
-  const handleDateChange = (challengeId: string, newDate: Date | undefined) => {
-    if (!newDate) return;
+  const {
+    data: challengesData,
+    isLoading,
+    isFetching,
+  } = useGetDailyChallengesQuery({
+    page: currentPage,
+    subject: selectedSubjectSlug === "all" ? undefined : selectedSubjectSlug,
+  });
 
-    setOpenDatePicker(null);
+  const [updateChallenge] = useUpdateDailyChallengeMutation();
+  const [deleteChallenge] = useDeleteDailyChallengeMutation();
 
-    const updatePromise = new Promise<{ date: string }>((resolve) => {
-      setTimeout(() => {
-        setChallenges(prev => 
-          prev.map(challenge => {
-            if (challenge.id === challengeId) {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const selectedDate = new Date(newDate);
-              selectedDate.setHours(0, 0, 0, 0);
-              
-              return {
-                ...challenge,
-                publishDate: newDate,
-                status: selectedDate <= today ? "Published" : "Pending"
-              };
-            }
-            return challenge;
-          })
-        );
-        resolve({ date: format(newDate, "PPP") });
-      }, 1500);
+  const challenges = challengesData?.results || [];
+  const totalCount = challengesData?.count || 0;
+  const itemsPerPage = 8;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(challengeUpdateSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      points: 0,
+      publishing_date: "",
+    },
+  });
+
+  const openEdit = (challenge: Challenge) => {
+    setSelectedChallenge(challenge);
+    form.reset({
+      name: challenge.name,
+      description: challenge.description,
+      points: challenge.points,
+      publishing_date: challenge.publishing_date,
     });
+    setEditOpen(true);
+  };
 
-    toast.promise(updatePromise, {
-      loading: "Updating publish date...",
-      success: (data: { date: string }) => {
-        return `Publish date updated to ${data.date}`;
-      },
-      error: "Failed to update publish date",
-    });
+  const openDelete = (challenge: Challenge) => {
+    setSelectedChallenge(challenge);
+    setDeleteOpen(true);
+  };
+
+  const handleUpdate = async (values: FormValues) => {
+    if (!selectedChallenge) return;
+    try {
+      await updateChallenge({
+        id: selectedChallenge.id,
+        body: values,
+      }).unwrap();
+      toast.success("Challenge updated successfully");
+      setEditOpen(false);
+    } catch {
+      toast.error("Failed to update challenge");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedChallenge) return;
+    try {
+      await deleteChallenge(selectedChallenge.id).unwrap();
+      toast.success("Challenge deleted successfully");
+      setDeleteOpen(false);
+    } catch {
+      toast.error("Failed to delete challenge");
+    }
   };
 
   return (
-    <div className="">
-      <div>
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">Daily Challenges</h2>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Math Subjects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Subjects</SelectItem>
-                  {subjects.slice(1).map(subject => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-12">No</TableHead>
-                      <TableHead className="min-w-[250px]">Question</TableHead>
-                      <TableHead className="min-w-[200px]">Answer</TableHead>
-                      <TableHead className="w-40">Subject</TableHead>
-                      <TableHead className="w-28">Status</TableHead>
-                      <TableHead className="w-32">Time Stamp</TableHead>
+    <div>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold">Challenge Management</h2>
+            <Select
+              value={selectedSubjectSlug}
+              onValueChange={(value) => {
+                setSelectedSubjectSlug(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="All Subjects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {subjectsData?.map((sub) => (
+                  <SelectItem key={sub.id} value={sub.slug}>
+                    {sub.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="w-12">No</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-center">Questions</TableHead>
+                    <TableHead className="text-center">Points</TableHead>
+                    <TableHead>Publish Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading || isFetching ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        Loading challenges...
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedChallenges.map((challenge, index) => (
-                      <TableRow key={challenge.id}>
-                        <TableCell className="font-medium">
-                          {startIndex + index + 1}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {challenge.question}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {challenge.answer}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs">
-                            {challenge.subject}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={challenge.status === "Published" ? "default" : "secondary"}
-                            className={`rounded-full px-3 py-1.5
-                              ${
-                                challenge.status === "Published" 
-                                ? "bg-[#ADF8C8] text-[#0E970E] hover:bg-green-600" 
-                                : "bg-[#F59E0B] text-white hover:bg-orange-400"
-                              }
-                            `}
-                          >
-                            {challenge.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {challenge.status === "Pending" ? (
-                            <Popover 
-                              open={openDatePicker === challenge.id}
-                              onOpenChange={(open) => setOpenDatePicker(open ? challenge.id : null)}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="w-full justify-between px-2 py-1 h-auto text-xs hover:bg-gray-100"
-                                >
-                                  {format(challenge.publishDate, "yyyy-MM-dd")}
-                                  <ChevronDown className="ml-1 h-3 w-3" />
+                  ) : challenges.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        No challenges found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    challenges.map((challenge, index) => {
+                      const rowNumber =
+                        (currentPage - 1) * itemsPerPage + index + 1;
+                      return (
+                        <TableRow key={challenge.id}>
+                          <TableCell className="font-medium">
+                            {rowNumber}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {challenge.name}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {challenge.description}
+                          </TableCell>
+                          <TableCell>{challenge.subject}</TableCell>
+                          <TableCell className="text-center">
+                            {challenge.number_of_questions}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {challenge.points}
+                          </TableCell>
+                          <TableCell>
+                            {format(
+                              new Date(challenge.publishing_date),
+                              "yyyy-MM-dd"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar
-                                  mode="single"
-                                  selected={challenge.publishDate}
-                                  onSelect={(date) => handleDateChange(challenge.id, date)}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <span className="text-xs text-gray-600">
-                              {format(challenge.publishDate, "yyyy-MM-dd")}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    router.push(
+                                      `/dashboard/ai-question-generator/${challenge.id}`
+                                    )
+                                  }
+                                >
+                                  <Eye className="mr-2 h-4 w-4" /> View
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openEdit(challenge)}
+                                >
+                                  <Edit3 className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => openDelete(challenge)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
             </div>
+          </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-6 flex justify-center">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        className={
-                          currentPage === 1 
-                            ? "pointer-events-none opacity-50" 
-                            : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-                    
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className={
+                        currentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
                       <PaginationItem key={page}>
                         <PaginationLink
                           onClick={() => setCurrentPage(page)}
@@ -353,25 +302,123 @@ function Challenges() {
                           {page}
                         </PaginationLink>
                       </PaginationItem>
-                    ))}
-                    
-                    <PaginationItem>
-                      <PaginationNext
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        className={
-                          currentPage === totalPages 
-                            ? "pointer-events-none opacity-50" 
-                            : "cursor-pointer"
-                        }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    )
+                  )}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Challenge</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={form.handleSubmit(handleUpdate)}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" {...form.register("name")} />
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.name.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                rows={3}
+                {...form.register("description")}
+              />
+              {form.formState.errors.description && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.description.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="points">Points</Label>
+              <Input
+                id="points"
+                type="number"
+                {...form.register("points", { valueAsNumber: true })}
+              />
+              {form.formState.errors.points && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.points.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="publishing_date">Publishing Date</Label>
+              <Input
+                id="publishing_date"
+                type="date"
+                {...form.register("publishing_date")}
+              />
+              {form.formState.errors.publishing_date && (
+                <p className="text-sm text-red-600 mt-1">
+                  {form.formState.errors.publishing_date.message}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Challenge?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{selectedChallenge?.name}". This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

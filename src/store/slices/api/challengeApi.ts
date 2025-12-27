@@ -1,12 +1,14 @@
-
 import {
   Subject,
   QuestionGenerationRequest,
   QuestionGenerationResponse,
   CreateChallengeRequest,
   CreateChallengeResponse,
-} from "@/types/challenge.type"
-import { apiSlice } from "./ApiSlice"
+  ChallengeUpdateResponse,
+  ChallengeUpdateRequest,
+  ChallengeListResponse,
+} from "@/types/challenge.type";
+import { apiSlice } from "./ApiSlice";
 
 export const challengeApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -32,6 +34,42 @@ export const challengeApi = apiSlice.injectEndpoints({
       }),
     }),
 
+    getDailyChallenges: builder.query<
+      ChallengeListResponse,
+      { page?: number; subject?: string }
+    >({
+      query: ({ page = 1, subject = "" }) => ({
+        url: "/admin-api/challenge-list/",
+        params: {
+          page,
+          ...(subject ? { subject } : {}),
+        },
+      }),
+      providesTags: ["Challenge"],
+    }),
+
+    // NEW: Update daily challenge
+    updateDailyChallenge: builder.mutation<
+      ChallengeUpdateResponse,
+      { id: string; body: ChallengeUpdateRequest }
+    >({
+      query: ({ id, body }) => ({
+        url: `/admin-api/challenge-update/${id}/`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Challenge"],
+    }),
+
+    // NEW: Delete daily challenge
+    deleteDailyChallenge: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/admin-api/challenge-delete/${id}/`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Challenge"],
+    }),
+
     // Create challenge
     createChallenge: builder.mutation<
       CreateChallengeResponse,
@@ -42,13 +80,16 @@ export const challengeApi = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Moderation"],
+      invalidatesTags: ["Challenge"],
     }),
   }),
-})
+});
 
 export const {
   useGetSubjectsQuery,
   useGenerateQuestionsMutation,
   useCreateChallengeMutation,
-} = challengeApi
+  useGetDailyChallengesQuery,
+  useUpdateDailyChallengeMutation,
+  useDeleteDailyChallengeMutation,
+} = challengeApi;
