@@ -7,6 +7,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Q, Exists, OuterRef
+from django.conf import settings
 
 from account.models import StudentProfile, UserAccount, StudentProgress
 from administration.models import DailyChallenge, ChallengeQuestion
@@ -14,6 +15,9 @@ from challenge.models import QuestionAttempt, ChallengeAttempt
 
 from .ai_client import check_solution_with_ai
 from .pagination import StandardResultsPagination, LeaderboardPagination
+
+import os
+import uuid
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -298,18 +302,28 @@ class NextChallengeQuestionView(APIView):
         )
 
 
-def save_temp_file(uploaded_file):
-    tmp_dir = "/tmp/ai_uploads"
-    os.makedirs(tmp_dir, exist_ok=True)
+def save_temp_file(file):
+    upload_dir = os.path.join(settings.MEDIA_ROOT, "ai_uploads")
+    os.makedirs(upload_dir, exist_ok=True)
 
-    filename = f"{uuid.uuid4()}_{uploaded_file.name}"
-    path = os.path.join(tmp_dir, filename)
+    name, ext = os.path.splitext(file.name)
+    ext = ext.lower() or ".jpg"  # fallback, but extension SHOULD exist
 
-    with open(path, "wb+") as f:
-        for chunk in uploaded_file.chunks():
-            f.write(chunk)
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(upload_dir, filename)
 
-    return path
+    with open(file_path, "wb+") as destination:
+        for chunk in file.chunks():
+            destination.write(chunk)
+
+    public_url = (
+        f"{settings.BASE_URL}"
+        f"{settings.MEDIA_URL}"
+        f"ai_uploads/{filename}"
+    )
+
+    return file_path, public_url
+
 class SubmitSolutionView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -376,9 +390,8 @@ class SubmitSolutionView(APIView):
             # Save image temporarily
             # -----------------------------
             if solution_image:
-                path = save_temp_file(solution_image)
-                temp_files.append(path)
-                solution_url = f"file://{path}"
+                file_path, solution_url = save_temp_file(solution_image)
+                temp_files.append(file_path)
 
             # -----------------------------
             # AI evaluation
