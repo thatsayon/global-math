@@ -45,7 +45,9 @@ class PostSerializer(serializers.ModelSerializer):
         text = validated_data.get('text', '')
         is_slang = detect_slang(text)
         if is_slang:
-            raise ValidationError({"msg": "Your post contains inappropriate language."})
+            raise serializers.ValidationError(
+                {"text": "Your post contains inappropriate language."}
+            )
 
         post = PostModel.objects.create(
             user=user, 
@@ -118,75 +120,6 @@ class PostFeedSerializer(serializers.ModelSerializer):
         reaction = obj.reactions.filter(user=user).first()
         return reaction.reaction if reaction else None
 
-#
-# class CommentSerializer(serializers.ModelSerializer):
-#     full_name = serializers.SerializerMethodField()
-#     profile_pic = serializers.SerializerMethodField()
-#     like_count = serializers.SerializerMethodField()
-#     dislike_count = serializers.SerializerMethodField()
-#     user_reaction = serializers.SerializerMethodField()
-#
-#     class Meta:
-#         model = CommentModel
-#         fields = (
-#             "id",
-#             "text",
-#             "image",
-#             "created_at",
-#             "updated_at",
-#             "full_name",
-#             "profile_pic",
-#             "like_count",
-#             "dislike_count",
-#             "user_reaction",
-#         )
-#         read_only_fields = (
-#             "id",
-#             "created_at",
-#             "updated_at",
-#             "full_name",
-#             "profile_pic",
-#             "like_count",
-#             "dislike_count",
-#             "user_reaction",
-#         ) 
-#
-#     def get_full_name(self, obj):
-#         if obj.user:
-#             return f"{obj.user.first_name} {obj.user.last_name}".strip()
-#         return None
-#
-#     def get_profile_pic(self, obj):
-#         if obj.user and obj.user.profile_pic:
-#             return obj.user.profile_pic.url
-#         return None
-#
-#     def get_like_count(self, obj):
-#         return obj.reactions.filter(reaction="like").count()
-#
-#     def get_dislike_count(self, obj):
-#         return obj.reactions.filter(reaction="dislike").count()
-#
-#     def get_user_reaction(self, obj):
-#         request = self.context.get("request")
-#         user = getattr(request, "user", None)
-#         if user and user.is_authenticated:
-#             reaction = obj.reactions.filter(user=user).first()
-#             return reaction.reaction if reaction else None
-#         return None
-#
-#     def validate(self, data):
-#         """
-#         Ensure at least one field (text or image) is provided when creating a comment.
-#         """
-#         if self.instance is None:  # Only run during creation
-#             text = data.get("text")
-#             image = data.get("image")
-#             if not text and not image:
-#                 raise serializers.ValidationError(
-#                     "A comment must contain text or an image."
-#                 )
-#         return data
 
 class CommentSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
