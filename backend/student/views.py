@@ -129,6 +129,67 @@ class OtherProfileView(APIView):
         return Response(user_data)
 
 
+# class StudentDashboardView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         student = request.user.account.student
+#         progress = student.progress
+#         today = timezone.now().date()
+#
+#         # activity map
+#         activities = (
+#             student.daily_activities
+#             .values("date")
+#             .annotate(points=Sum("points_earned"))
+#         )
+#
+#         activity_map = {
+#             a["date"]: a["points"]
+#             for a in activities
+#         }
+#
+#         active_dates = [
+#             d for d, p in activity_map.items() if p > 0
+#         ]
+#
+#         current_streak, longest_streak = calculate_streaks(active_dates)
+#
+#         # calendar (last 30 days)
+#         calendar = []
+#         for i in range(29, -1, -1):
+#             day = today - timedelta(days=i)
+#             points = activity_map.get(day, 0)
+#
+#             calendar.append({
+#                 "date": day,
+#                 "points": points,
+#                 "active": points > 0
+#             })
+#
+#         next_level_points = (
+#             progress.BASE_POINTS * (progress.level + 1) ** 2
+#         )
+#
+#         data = {
+#             "progress": {
+#                 "total_points": progress.total_points,
+#                 "level": progress.level,
+#                 "next_level_points": next_level_points,
+#                 "points_to_next_level": max(
+#                     next_level_points - progress.total_points, 0
+#                 )
+#             },
+#             "current_streak": current_streak,
+#             "longest_streak": longest_streak,
+#             "calendar": calendar,
+#             "badges": student.earned_badges.select_related("badge")
+#         }
+#
+#         serializer = StudentDashboardSerializer(data)
+#         return Response(serializer.data)
+
+
 class StudentDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -188,3 +249,4 @@ class StudentDashboardView(APIView):
 
         serializer = StudentDashboardSerializer(data)
         return Response(serializer.data)
+
