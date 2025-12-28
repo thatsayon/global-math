@@ -22,21 +22,20 @@ def add_points(student: StudentProfile, points: int):
     student.progress.add_points(points)
 
 
-
-def calculate_streaks(active_dates):
+def calculate_streaks(attend_dates):
     """
-    active_dates: iterable of date objects where points > 0
+    attend_dates: iterable of date objects (challenge attend dates)
     returns: (current_streak, longest_streak)
     """
 
-    if not active_dates:
+    if not attend_dates:
         return 0, 0
 
-    dates = sorted(set(active_dates))
+    dates = sorted(set(attend_dates))
     date_set = set(dates)
 
     # -----------------------------
-    # Longest streak (classic)
+    # Longest streak
     # -----------------------------
     longest = 0
     streak = 0
@@ -56,7 +55,6 @@ def calculate_streaks(active_dates):
     # -----------------------------
     today = timezone.now().date()
 
-    # If today is inactive, allow streak ending yesterday
     if today not in date_set:
         today -= timedelta(days=1)
 
@@ -66,6 +64,8 @@ def calculate_streaks(active_dates):
         today -= timedelta(days=1)
 
     return current, longest
+
+
 
 # def calculate_streaks(active_dates):
 #     active_dates = sorted(set(active_dates), reverse=True)

@@ -31,6 +31,7 @@ from .utils import (
     calculate_streaks,
 )
 
+from student.classroom.models import ChallengeAttend
 User = get_user_model()
 
 class ProfileInformationView(generics.RetrieveUpdateAPIView):
@@ -194,11 +195,18 @@ class StudentDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        student = request.user.account.student
-        progress = student.progress
+        # -----------------------------
+        # Resolve student & progress safely
+        # -----------------------------
+        account = get_object_or_404(UserAccount, user=request.user)
+        student = get_object_or_404(StudentProfile, account=account)
+        progress, _ = StudentProgress.objects.get_or_create(student=student)
+
         today = timezone.now().date()
 
-        # activity map
+        # -----------------------------
+        # Calendar activity (points-based)
+        # -----------------------------
         activities = (
             student.daily_activities
             .values("date")
@@ -210,13 +218,6 @@ class StudentDashboardView(APIView):
             for a in activities
         }
 
-        active_dates = [
-            d for d, p in activity_map.items() if p > 0
-        ]
-
-        current_streak, longest_streak = calculate_streaks(active_dates)
-
-        # calendar (last 30 days)
         calendar = []
         for i in range(29, -1, -1):
             day = today - timedelta(days=i)
@@ -228,6 +229,24 @@ class StudentDashboardView(APIView):
                 "active": points > 0
             })
 
+        # -----------------------------
+        # Streaks (challenge-based)
+        # -----------------------------
+        challenge_dates = (
+            ChallengeAttend.objects
+            .filter(student=request.user)
+            .values_list("created_at", flat=True)
+        )
+
+        challenge_dates = [d.date() for d in challenge_dates]
+
+        current_streak, longest_streak = calculate_streaks(
+            challenge_dates
+        )
+
+        # -----------------------------
+        # Level progression
+        # -----------------------------
         next_level_points = (
             progress.BASE_POINTS * (progress.level + 1) ** 2
         )
@@ -249,4 +268,3 @@ class StudentDashboardView(APIView):
 
         serializer = StudentDashboardSerializer(data)
         return Response(serializer.data)
-
