@@ -15,7 +15,7 @@ from administration.models import (
     SupportMessage,
 )
 
-from account.models import UserAccount
+from account.models import UserAccount, StudentProfile, StudentProgress
 
 from .serializers import (
     ProfileInformationSerializer,
