@@ -16,6 +16,7 @@ from administration.models import (
 )
 
 from account.models import UserAccount, StudentProfile, StudentProgress
+from challenge.models import ChallengeAttempt
 
 from .serializers import (
     ProfileInformationSerializer,
@@ -244,15 +245,15 @@ class StudentDashboardView(APIView):
             })
 
         # -----------------------------
-        # Streaks (challenge-based)
+        # Streaks (ChallengeAttempt-based)
         # -----------------------------
         challenge_dates = (
-            ChallengeAttend.objects
-            .filter(student=request.user)
+            ChallengeAttempt.objects
+            .filter(student=student)
             .values_list("created_at", flat=True)
         )
 
-        challenge_dates = [d.date() for d in challenge_dates]
+        challenge_dates = [dt.date() for dt in challenge_dates]
 
         current_streak, longest_streak = calculate_streaks(
             challenge_dates
