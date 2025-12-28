@@ -192,16 +192,27 @@ class OtherProfileView(APIView):
 #         return Response(serializer.data)
 
 
+
 class StudentDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         # -----------------------------
-        # Resolve student & progress safely
+        # Resolve User → Account → Student
         # -----------------------------
-        account = get_object_or_404(User, user=request.user)
-        student = get_object_or_404(StudentProfile, account=account)
-        progress, _ = StudentProgress.objects.get_or_create(student=student)
+        account = get_object_or_404(
+            User,
+            user=request.user
+        )
+
+        student = get_object_or_404(
+            StudentProfile,
+            account=account
+        )
+
+        progress, _ = StudentProgress.objects.get_or_create(
+            student=student
+        )
 
         today = timezone.now().date()
 
@@ -258,7 +269,8 @@ class StudentDashboardView(APIView):
                 "level": progress.level,
                 "next_level_points": next_level_points,
                 "points_to_next_level": max(
-                    next_level_points - progress.total_points, 0
+                    next_level_points - progress.total_points,
+                    0
                 )
             },
             "current_streak": current_streak,
