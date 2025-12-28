@@ -21,30 +21,76 @@ def add_points(student: StudentProfile, points: int):
 
     student.progress.add_points(points)
 
-def calculate_streaks(active_dates):
-    active_dates = sorted(set(active_dates), reverse=True)
 
-    current = 0
+
+def calculate_streaks(active_dates):
+    """
+    active_dates: iterable of date objects where points > 0
+    returns: (current_streak, longest_streak)
+    """
+
+    if not active_dates:
+        return 0, 0
+
+    dates = sorted(set(active_dates))
+    date_set = set(dates)
+
+    # -----------------------------
+    # Longest streak (classic)
+    # -----------------------------
     longest = 0
-    temp = 0
+    streak = 0
     prev = None
 
-    for d in active_dates:
-        if prev is None or prev == d + timedelta(days=1):
-            temp += 1
+    for d in dates:
+        if prev and d == prev + timedelta(days=1):
+            streak += 1
         else:
-            temp = 1
+            streak = 1
 
-        longest = max(longest, temp)
-
-        if prev is None:
-            current = temp
-        elif prev == d + timedelta(days=1) and current == temp - 1:
-            current = temp
-
+        longest = max(longest, streak)
         prev = d
 
+    # -----------------------------
+    # Current streak (ending today)
+    # -----------------------------
+    today = timezone.now().date()
+
+    # If today is inactive, allow streak ending yesterday
+    if today not in date_set:
+        today -= timedelta(days=1)
+
+    current = 0
+    while today in date_set:
+        current += 1
+        today -= timedelta(days=1)
+
     return current, longest
+
+# def calculate_streaks(active_dates):
+#     active_dates = sorted(set(active_dates), reverse=True)
+#
+#     current = 0
+#     longest = 0
+#     temp = 0
+#     prev = None
+#
+#     for d in active_dates:
+#         if prev is None or prev == d + timedelta(days=1):
+#             temp += 1
+#         else:
+#             temp = 1
+#
+#         longest = max(longest, temp)
+#
+#         if prev is None:
+#             current = temp
+#         elif prev == d + timedelta(days=1) and current == temp - 1:
+#             current = temp
+#
+#         prev = d
+#
+#     return current, longest
 
 def award_badge_by_code(student: StudentProfile, badge_code: str) -> bool:
     """
