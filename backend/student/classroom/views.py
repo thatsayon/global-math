@@ -42,9 +42,16 @@ from .pagination import ClassroomFeedPagination
 class ClassRoomListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ClassRoomListSerializer
-    queryset = Classroom.objects.annotate(
-        post_count = Count('posts')
-    )
+
+    def get_queryset(self):
+        user = self.request.user
+
+        return (
+            Classroom.objects
+            .filter(members__user=user)          # 👈 ONLY joined classrooms
+            .annotate(post_count=Count("posts"))
+            .distinct()
+        )
 
 class ClassRoomFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
