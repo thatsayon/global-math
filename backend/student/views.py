@@ -32,6 +32,7 @@ from .utils import (
 )
 
 from student.classroom.models import ChallengeAttend
+
 User = get_user_model()
 
 class ProfileInformationView(generics.RetrieveUpdateAPIView):
@@ -198,7 +199,7 @@ class StudentDashboardView(APIView):
         # -----------------------------
         # Resolve student & progress safely
         # -----------------------------
-        account = get_object_or_404(UserAccount, user=request.user)
+        account = get_object_or_404(User, user=request.user)
         student = get_object_or_404(StudentProfile, account=account)
         progress, _ = StudentProgress.objects.get_or_create(student=student)
 
