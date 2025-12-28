@@ -196,43 +196,128 @@ class OtherProfileView(APIView):
 
 
 
+# class StudentDashboardView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         # -----------------------------
+#         # Resolve User → Account → Student
+#         # -----------------------------
+#         account = get_object_or_404(
+#             UserAccount,
+#             user=request.user
+#         )
+#
+#         student = get_object_or_404(
+#             StudentProfile,
+#             account=account
+#         )
+#
+#         progress, _ = StudentProgress.objects.get_or_create(
+#             student=student
+#         )
+#
+#         today = timezone.now().date()
+#
+#         # -----------------------------
+#         # Calendar activity (points-based)
+#         # -----------------------------
+#         activities = (
+#             student.daily_activities
+#             .values("date")
+#             .annotate(points=Sum("points_earned"))
+#         )
+#
+#         activity_map = {
+#             a["date"]: a["points"]
+#             for a in activities
+#         }
+#
+#         calendar = []
+#         for i in range(29, -1, -1):
+#             day = today - timedelta(days=i)
+#             points = activity_map.get(day, 0)
+#
+#             calendar.append({
+#                 "date": day,
+#                 "points": points,
+#                 "active": points > 0
+#             })
+#
+#         # -----------------------------
+#         # Streaks (ChallengeAttempt-based)
+#         # -----------------------------
+#         challenge_dates = (
+#             ChallengeAttempt.objects
+#             .filter(student=student)
+#             .values_list("created_at", flat=True)
+#         )
+#
+#         challenge_dates = [dt.date() for dt in challenge_dates]
+#
+#         current_streak, longest_streak = calculate_streaks(
+#             challenge_dates
+#         )
+#
+#         # -----------------------------
+#         # Level progression
+#         # -----------------------------
+#         next_level_points = (
+#             progress.BASE_POINTS * (progress.level + 1) ** 2
+#         )
+#
+#         data = {
+#             "progress": {
+#                 "total_points": progress.total_points,
+#                 "level": progress.level,
+#                 "next_level_points": next_level_points,
+#                 "points_to_next_level": max(
+#                     next_level_points - progress.total_points,
+#                     0
+#                 )
+#             },
+#             "current_streak": current_streak,
+#             "longest_streak": longest_streak,
+#             "calendar": calendar,
+#             "badges": student.earned_badges.select_related("badge")
+#         }
+#
+#         serializer = StudentDashboardSerializer(data)
+#         return Response(serializer.data)
+
+
 class StudentDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         # -----------------------------
-        # Resolve User → Account → Student
+        # Resolve student & progress
         # -----------------------------
-        account = get_object_or_404(
-            UserAccount,
-            user=request.user
-        )
-
-        student = get_object_or_404(
-            StudentProfile,
-            account=account
-        )
-
-        progress, _ = StudentProgress.objects.get_or_create(
-            student=student
-        )
+        account = get_object_or_404(UserAccount, user=request.user)
+        student = get_object_or_404(StudentProfile, account=account)
+        progress, _ = StudentProgress.objects.get_or_create(student=student)
 
         today = timezone.now().date()
 
         # -----------------------------
-        # Calendar activity (points-based)
+        # Activity from ChallengeAttempt
         # -----------------------------
-        activities = (
-            student.daily_activities
-            .values("date")
-            .annotate(points=Sum("points_earned"))
+        challenge_activity = (
+            ChallengeAttempt.objects
+            .filter(student=student)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(points=Sum("score"))
         )
 
         activity_map = {
-            a["date"]: a["points"]
-            for a in activities
+            a["day"]: a["points"] or 0
+            for a in challenge_activity
         }
 
+        # -----------------------------
+        # Calendar (last 30 days)
+        # -----------------------------
         calendar = []
         for i in range(29, -1, -1):
             day = today - timedelta(days=i)
@@ -245,19 +330,10 @@ class StudentDashboardView(APIView):
             })
 
         # -----------------------------
-        # Streaks (ChallengeAttempt-based)
+        # Streaks (challenge-based)
         # -----------------------------
-        challenge_dates = (
-            ChallengeAttempt.objects
-            .filter(student=student)
-            .values_list("created_at", flat=True)
-        )
-
-        challenge_dates = [dt.date() for dt in challenge_dates]
-
-        current_streak, longest_streak = calculate_streaks(
-            challenge_dates
-        )
+        active_dates = list(activity_map.keys())
+        current_streak, longest_streak = calculate_streaks(active_dates)
 
         # -----------------------------
         # Level progression
@@ -266,21 +342,18 @@ class StudentDashboardView(APIView):
             progress.BASE_POINTS * (progress.level + 1) ** 2
         )
 
-        data = {
+        return Response({
             "progress": {
                 "total_points": progress.total_points,
                 "level": progress.level,
                 "next_level_points": next_level_points,
                 "points_to_next_level": max(
-                    next_level_points - progress.total_points,
-                    0
+                    next_level_points - progress.total_points, 0
                 )
             },
             "current_streak": current_streak,
             "longest_streak": longest_streak,
             "calendar": calendar,
             "badges": student.earned_badges.select_related("badge")
-        }
+        })
 
-        serializer = StudentDashboardSerializer(data)
-        return Response(serializer.data)
