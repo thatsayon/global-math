@@ -2,6 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, status, permissions
 
+from django.db.models import Count, Case, When, IntegerField, Value, F, Q
+from django.db.models.functions import Coalesce, Random
+from django.utils import timezone
+
+from datetime import timedelta
+
 from core.pagination import (
     PostFeedPagination,
     CommentPagination,
@@ -17,6 +23,7 @@ from .models import (
     PostReaction,
     CommentModel,
     CommentReaction,
+    PostView,
 )
 
 class PostCreateView(APIView):
@@ -50,28 +57,117 @@ class PostDeleteView(generics.DestroyAPIView):
 
         return obj
 
+
 class PostFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        posts = (
-            PostModel.objects
-            .filter(classroom__isnull=True)   
-            .select_related("user", "post_level")
-            .order_by("-created_at")
-        )
+        user = request.user
+        user_levels = user.math_levels.values_list("id", flat=True)
+
+        recent_cutoff = timezone.now() - timedelta(hours=6)
+        recently_seen = PostView.objects.filter(
+            user=user,
+            viewed_at__gte=recent_cutoff
+        ).values_list("post_id", flat=True)
+
+        def base_queryset(exclude_seen=True):
+            qs = (
+                PostModel.objects
+                .filter(classroom__isnull=True)
+                .select_related("user", "post_level")
+                .annotate(
+                    like_count=Count("reactions", filter=Q(reactions__reaction="like")),
+                    comment_count=Count("comments"),
+                )
+                .annotate(
+                    engagement_score=F("like_count") * 2 + F("comment_count") * 3,
+                    topic_score=Case(
+                        When(post_level_id__in=user_levels, then=Value(30)),
+                        default=Value(0),
+                        output_field=IntegerField(),
+                    ),
+                    verified_score=Case(
+                        When(is_verified=True, then=Value(10)),
+                        default=Value(0),
+                        output_field=IntegerField(),
+                    ),
+                    media_score=Case(
+                        When(image__isnull=False, then=Value(5)),
+                        When(video__isnull=False, then=Value(5)),
+                        default=Value(0),
+                        output_field=IntegerField(),
+                    ),
+                    random_jitter=Random() * 3,
+                )
+                .annotate(
+                    rank_score=(
+                        F("topic_score")
+                        + F("verified_score")
+                        + F("media_score")
+                        + F("engagement_score")
+                        + F("random_jitter")
+                    )
+                )
+                .order_by("-rank_score", "-created_at")
+            )
+
+            if exclude_seen:
+                qs = qs.exclude(id__in=recently_seen)
+
+            return qs
+
+        # -----------------------------
+        # Primary attempt (exclude seen)
+        # -----------------------------
+        queryset = base_queryset(exclude_seen=True)
+
+        # -----------------------------
+        # FALLBACK: nothing left → relax exclusion
+        # -----------------------------
+        if not queryset.exists():
+            queryset = base_queryset(exclude_seen=False)
 
         paginator = PostFeedPagination()
-        result_page = paginator.paginate_queryset(posts, request)
+        page = paginator.paginate_queryset(queryset, request)
+
+        # Track views AFTER pagination
+        PostView.objects.bulk_create(
+            [PostView(user=user, post=post) for post in page],
+            ignore_conflicts=True
+        )
 
         serializer = PostFeedSerializer(
-            result_page,
+            page,
             many=True,
             context={"request": request}
         )
 
         return paginator.get_paginated_response(serializer.data)
 
+#
+# class PostFeedView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         posts = (
+#             PostModel.objects
+#             .filter(classroom__isnull=True)   
+#             .select_related("user", "post_level")
+#             .order_by("-created_at")
+#         )
+#
+#         paginator = PostFeedPagination()
+#         result_page = paginator.paginate_queryset(posts, request)
+#
+#         serializer = PostFeedSerializer(
+#             result_page,
+#             many=True,
+#             context={"request": request}
+#         )
+#
+#         return paginator.get_paginated_response(serializer.data)
+#
 class PostLikeDislikeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

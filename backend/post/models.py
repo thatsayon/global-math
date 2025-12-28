@@ -204,3 +204,16 @@ class CommentReaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} {self.reaction}d comment {self.comment.id}"
+
+
+class PostView(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(PostModel, on_delete=models.CASCADE)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "post")
+        indexes = [
+            models.Index(fields=["user", "viewed_at"]),
+        ]
+
