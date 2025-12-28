@@ -15,6 +15,8 @@ from administration.models import (
     SupportMessage,
 )
 
+from account.models import UserAccount
+
 from .serializers import (
     ProfileInformationSerializer,
     ChangePasswordSerializer,
@@ -201,7 +203,7 @@ class StudentDashboardView(APIView):
         # Resolve User → Account → Student
         # -----------------------------
         account = get_object_or_404(
-            User,
+            UserAccount,
             user=request.user
         )
 
