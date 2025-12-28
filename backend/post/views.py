@@ -50,19 +50,24 @@ class PostDeleteView(generics.DestroyAPIView):
 
         return obj
 
-
 class PostFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        posts = PostModel.objects.all().order_by('-created_at')
+        posts = (
+            PostModel.objects
+            .filter(classroom__isnull=True)   
+            .select_related("user", "post_level")
+            .order_by("-created_at")
+        )
+
         paginator = PostFeedPagination()
         result_page = paginator.paginate_queryset(posts, request)
 
         serializer = PostFeedSerializer(
-            result_page, 
-            many=True, 
-            context={'request': request}
+            result_page,
+            many=True,
+            context={"request": request}
         )
 
         return paginator.get_paginated_response(serializer.data)
