@@ -26,6 +26,12 @@ from .models import (
     PostView,
 )
 
+class PostDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = PostModel.objects.all()
+    serializer_class = PostFeedSerializer
+    lookup_url_kwarg = 'post_id'
+
 class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

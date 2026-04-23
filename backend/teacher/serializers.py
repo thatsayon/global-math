@@ -75,7 +75,8 @@ class ClassroomDetailSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'room_code',
-            'members_count'
+            'members_count',
+            'is_public'
         )
 
 # classroom related serializers
