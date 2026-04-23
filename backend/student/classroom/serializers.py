@@ -18,7 +18,8 @@ class ClassRoomListSerializer(serializers.ModelSerializer):
             'room_code',
             'members_count',
             'description',
-            'post_count'
+            'post_count',
+            'is_public'
         )
 
 

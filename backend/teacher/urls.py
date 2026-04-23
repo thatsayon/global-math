@@ -2,6 +2,8 @@ from django.urls import path
 from classroom.views import (
     CreateClassroomView,
     UpdateClassroomView,
+    ListJoinRequestsView,
+    RespondJoinRequestView,
 )
 
 from .views import (
@@ -28,6 +30,8 @@ urlpatterns = [
     path('update-classroom/<uuid:pk>/', UpdateClassroomView.as_view(), name='Update Classroom'),
     path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
     path('invite-student/', InviteStudentView.as_view(), name='Invite Student'),
+    path('join-requests/', ListJoinRequestsView.as_view(), name='List Join Requests'),
+    path('join-requests/respond/', RespondJoinRequestView.as_view(), name='Respond Join Request'),
 
     # challenge list urls
     path('challenge-list/', ChallengeListView.as_view(), name='Challenge List'),

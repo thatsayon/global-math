@@ -22,6 +22,7 @@ from classroom.models import (
     ClassRoomChallenge,
     QuestionOptions,
     ClassroomMemberList,
+    JoinRequest,
 )
 from post.serializers import PostFeedSerializer
 from post.models import PostModel
@@ -425,6 +426,18 @@ class JoinClassroomView(APIView):
                 "message": "You already joined this classroom."
             }, status=400)
 
+        # 2.5 Check if classroom is public
+        if not classroom.is_public:
+            if JoinRequest.objects.filter(user=user, classroom=classroom, status="pending").exists():
+                return Response({
+                    "message": "You already have a pending join request."
+                }, status=400)
+            JoinRequest.objects.create(user=user, classroom=classroom, status="pending")
+            return Response({
+                "message": "Join request sent to the teacher.",
+                "status": "pending"
+            }, status=201)
+
         # 3. Create membership entry
         ClassroomMemberList.objects.create(
             user=user,
@@ -474,6 +487,18 @@ class JoinClassroomWithCode(APIView):
             return Response(
                 {"message": "You already joined this classroom."},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not classroom.is_public:
+            if JoinRequest.objects.filter(user=user, classroom=classroom, status="pending").exists():
+                return Response(
+                    {"message": "You already have a pending join request."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            JoinRequest.objects.create(user=user, classroom=classroom, status="pending")
+            return Response(
+                {"message": "Join request sent to the teacher.", "status": "pending"},
+                status=status.HTTP_201_CREATED
             )
 
         ClassroomMemberList.objects.create(

@@ -144,8 +144,8 @@ class InviteStudentView(APIView):
 
         classroom = get_object_or_404(Classroom, id=classroom_id)
 
-        share_url = os.getenv('FRONTEND_BASE') + "/" + classroom.room_code
-        print(classroom.room_code)
+        share_url = classroom.room_code
+        
         return Response({
             "classroom link": share_url
         }, status=status.HTTP_200_OK)
