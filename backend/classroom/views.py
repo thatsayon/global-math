@@ -4,11 +4,12 @@ from rest_framework import status, permissions, generics
 
 from core.activity_logger import log_classroom_created
 
-from .models import Classroom, ClassroomMemberList
+from .models import Classroom, ClassroomMemberList, JoinRequest
 from .serializers import (
     JoinClassroomSerializer,
     CreateClassroomSerializer,
     ClassroomDetailSerializer,
+    JoinRequestSerializer
 )
 
 class CreateClassroomView(generics.ListCreateAPIView):
@@ -33,6 +34,15 @@ class CreateClassroomView(generics.ListCreateAPIView):
         except:
             pass
 
+class UpdateClassroomView(generics.UpdateAPIView):
+    serializer_class = CreateClassroomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only the creator can update the classroom
+        return Classroom.objects.filter(creator=self.request.user)
+
+
 class JoinClassroomView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -50,10 +60,57 @@ class JoinClassroomView(APIView):
         if ClassroomMemberList.objects.filter(user=request.user, classroom=classroom).exists():
             return Response({"message": "You already joined this classroom."}, status=status.HTTP_200_OK)
 
+        if not classroom.is_public:
+            if JoinRequest.objects.filter(user=request.user, classroom=classroom, status="pending").exists():
+                return Response({"message": "You already have a pending join request."}, status=status.HTTP_200_OK)
+            JoinRequest.objects.create(user=request.user, classroom=classroom, status="pending")
+            return Response({"message": "Join request sent to the teacher.", "status": "pending"}, status=status.HTTP_201_CREATED)
+
         member = ClassroomMemberList.objects.create(user=request.user, classroom=classroom)
         classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
         classroom.save(update_fields=["members_count"])
 
         serializer = JoinClassroomSerializer(member)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ListJoinRequestsView(generics.ListAPIView):
+    serializer_class = JoinRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return JoinRequest.objects.filter(classroom__creator=self.request.user, status="pending")
+
+class RespondJoinRequestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        request_id = request.data.get("request_id")
+        action = request.data.get("action")
+
+        if not request_id or action not in ["approve", "reject"]:
+            return Response({"error": "request_id and valid action ('approve' or 'reject') are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            join_request = JoinRequest.objects.get(id=request_id, classroom__creator=request.user)
+        except JoinRequest.DoesNotExist:
+            return Response({"error": "Join request not found or unauthorized"}, status=status.HTTP_404_NOT_FOUND)
+
+        if join_request.status != "pending":
+            return Response({"error": "Request is already processed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if action == "approve":
+            join_request.status = "approved"
+            join_request.save(update_fields=["status"])
+            
+            if not ClassroomMemberList.objects.filter(user=join_request.user, classroom=join_request.classroom).exists():
+                ClassroomMemberList.objects.create(user=join_request.user, classroom=join_request.classroom)
+                classroom = join_request.classroom
+                classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
+                classroom.save(update_fields=["members_count"])
+            
+            return Response({"message": "Join request approved."}, status=status.HTTP_200_OK)
+        else:
+            join_request.status = "rejected"
+            join_request.save(update_fields=["status"])
+            return Response({"message": "Join request rejected."}, status=status.HTTP_200_OK)
 

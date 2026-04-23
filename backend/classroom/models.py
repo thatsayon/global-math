@@ -26,6 +26,7 @@ class Classroom(models.Model):
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     room_code = models.CharField(max_length=20, unique=True, blank=True)
     members_count = models.PositiveIntegerField(default=0)
+    is_public = models.BooleanField(default=True)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -73,6 +74,31 @@ class ClassroomMemberList(models.Model):
 
     def __str__(self):
         return f"{self.user} joined {self.classroom.name}"
+
+class JoinRequest(models.Model):
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    )
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        unique=True
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="classroom_join_requests")
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name="join_requests")
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # A user can only have one pending request per classroom at a time, but since they can reapply,
+        # we handle the uniqueness manually in the view or leave it free.
+        pass
+
+    def __str__(self):
+        return f"{self.user} requests to join {self.classroom.name} ({self.status})"
 
 class ClassRoomChallenge(models.Model):
     VISIBILITY_CHOICES = (

@@ -44,6 +44,7 @@ class MyClassroomSerializer(serializers.ModelSerializer):
             'slug',
             'room_code',
             'members_count',
+            'is_public',
             'last_activity'
         )
 

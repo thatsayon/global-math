@@ -1,6 +1,7 @@
 from django.urls import path
 from classroom.views import (
     CreateClassroomView,
+    UpdateClassroomView,
 )
 
 from .views import (
@@ -24,6 +25,7 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='Profile View'),
     path('my-classroom/', MyClassroomView.as_view(), name='My Classroom'),
     path('create-classroom/', CreateClassroomView.as_view(), name='Create Classroom'),
+    path('update-classroom/<uuid:pk>/', UpdateClassroomView.as_view(), name='Update Classroom'),
     path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
     path('invite-student/', InviteStudentView.as_view(), name='Invite Student'),
 
