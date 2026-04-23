@@ -78,7 +78,13 @@ class ListJoinRequestsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return JoinRequest.objects.filter(classroom__creator=self.request.user, status="pending")
+        queryset = JoinRequest.objects.filter(classroom__creator=self.request.user, status="pending")
+        
+        classroom_id = self.request.query_params.get("classroom_id") or self.request.data.get("classroom_id")
+        if classroom_id:
+            queryset = queryset.filter(classroom_id=classroom_id)
+            
+        return queryset
 
 class RespondJoinRequestView(APIView):
     permission_classes = [permissions.IsAuthenticated]
