@@ -68,6 +68,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.math_levels.set(math_levels)
         return user
 
+class UpdateLanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('language',)
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

@@ -13,6 +13,7 @@ from .views import (
     ResendForgetPassOTPView,
     CustomTokenRefreshView,
     AccountDeleteView,
+    UpdateLanguageView,
 )
 
 urlpatterns = [
@@ -25,4 +26,5 @@ urlpatterns = [
     path('account-delete/', AccountDeleteView.as_view(), name='Account Delete'),
     path('levels/', MathLevelsListView.as_view(), name='Math Levels'),
     path('generate-access-token/', CustomTokenRefreshView.as_view(), name='Math Levels'),
+    path('update-language/', UpdateLanguageView.as_view(), name='Update Language'),
 ]

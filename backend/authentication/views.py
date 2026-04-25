@@ -21,7 +21,8 @@ from .utils import (
 )
 from .serializers import (
     RegisterSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    UpdateLanguageSerializer,
 )
 from .tasks import (
     send_password_reset_email_task,
@@ -48,6 +49,14 @@ class RegisterView(generics.CreateAPIView):
             pass
 
         return Response(response_data, status=status.HTTP_201_CREATED)
+
+class UpdateLanguageView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UpdateLanguageSerializer
+
+    def get_object(self):
+        return self.request.user
+
 
 class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
