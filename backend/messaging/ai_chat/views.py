@@ -11,8 +11,6 @@ from .pagination import ChatMessagePagination
 import requests
 import os
 
-AI_CHAT_BASE = os.getenv('AI_CHAT_BASE_URL')
-
 class CreateChatSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -29,16 +27,18 @@ class CreateChatSessionView(APIView):
             )
 
         # 2. Create new AI session
+        ai_chat_base = os.getenv('AI_CHAT_BASE_URL')
         try:
             res = requests.post(
-                f"{AI_CHAT_BASE}/api/set_email/",
+                f"{ai_chat_base}/api/set_email/",
                 json={"email": user.email},
                 timeout=10
             )
             res.raise_for_status()
-        except requests.RequestException:
+        except requests.RequestException as e:
+            print(f"Error connecting to AI service at {ai_chat_base}: {e}")
             return Response(
-                {"error": "AI service unavailable"},
+                {"error": f"AI service unavailable: {str(e)}"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
@@ -95,9 +95,10 @@ class SendChatMessageView(APIView):
         )
 
         # Send to AI
+        ai_chat_base = os.getenv('AI_CHAT_BASE_URL')
         try:
             res = requests.post(
-                f"{AI_CHAT_BASE}/api/chat/",
+                f"{ai_chat_base}/api/chat/",
                 json={
                     "message": message,
                     "session_id": session.ai_session_id
@@ -105,9 +106,10 @@ class SendChatMessageView(APIView):
                 timeout=30
             )
             res.raise_for_status()
-        except requests.RequestException:
+        except requests.RequestException as e:
+            print(f"Error connecting to AI service at {ai_chat_base}: {e}")
             return Response(
-                {"error": "AI service failed"},
+                {"error": f"AI service failed: {str(e)}"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
