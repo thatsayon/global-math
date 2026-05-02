@@ -66,6 +66,8 @@ class StudentProgress(models.Model):
 
     def add_points(self, points: int):
         self.total_points += points
+        if self.total_points < 0:
+            self.total_points = 0
         self.recalculate_level()
         self.save(update_fields=["total_points", "level", "updated_at"])
 

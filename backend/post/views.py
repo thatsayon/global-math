@@ -200,16 +200,37 @@ class PostLikeDislikeView(APIView):
             defaults={'reaction': reaction_type}
         )
 
+        from administration.models import PointAdjustment
+        point_adj = PointAdjustment.objects.first()
+        upvote_points = point_adj.upvote_point if point_adj else 0
+
+        def adjust_points(target_user, amount):
+            if not target_user: return
+            if hasattr(target_user, 'account') and hasattr(target_user.account, 'student'):
+                student = target_user.account.student
+                if hasattr(student, 'progress'):
+                    student.progress.add_points(amount)
+
         if not created:
             if reaction.reaction == reaction_type:
                 reaction.delete()
                 message = f"{reaction_type} removed"
+                if reaction_type == 'like' and post.user and post.user != request.user:
+                    adjust_points(post.user, -upvote_points)
             else:
+                old_reaction = reaction.reaction
                 reaction.reaction = reaction_type
                 reaction.save()
                 message = f"Changed reaction to {reaction_type}"
+                if post.user and post.user != request.user:
+                    if old_reaction == 'dislike' and reaction_type == 'like':
+                        adjust_points(post.user, upvote_points)
+                    elif old_reaction == 'like' and reaction_type == 'dislike':
+                        adjust_points(post.user, -upvote_points)
         else:
             message = f"{reaction_type} added"
+            if reaction_type == 'like' and post.user and post.user != request.user:
+                adjust_points(post.user, upvote_points)
 
         return Response(
             {"message": message},
@@ -260,17 +281,38 @@ class CommentReactionView(APIView):
         user = request.user
         existing_reaction = CommentReaction.objects.filter(comment=comment, user=user).first()
 
+        from administration.models import PointAdjustment
+        point_adj = PointAdjustment.objects.first()
+        upvote_points = point_adj.upvote_point if point_adj else 0
+
+        def adjust_points(target_user, amount):
+            if not target_user: return
+            if hasattr(target_user, 'account') and hasattr(target_user.account, 'student'):
+                student = target_user.account.student
+                if hasattr(student, 'progress'):
+                    student.progress.add_points(amount)
+
         if existing_reaction:
             if existing_reaction.reaction == reaction_type:
                 existing_reaction.delete()
                 message = f"{reaction_type} removed"
+                if reaction_type == 'like' and comment.user and comment.user != request.user:
+                    adjust_points(comment.user, -upvote_points)
             else:
+                old_reaction = existing_reaction.reaction
                 existing_reaction.reaction = reaction_type
                 existing_reaction.save()
                 message = f"Changed to {reaction_type}"
+                if comment.user and comment.user != request.user:
+                    if old_reaction == 'dislike' and reaction_type == 'like':
+                        adjust_points(comment.user, upvote_points)
+                    elif old_reaction == 'like' and reaction_type == 'dislike':
+                        adjust_points(comment.user, -upvote_points)
         else:
             CommentReaction.objects.create(comment=comment, user=user, reaction=reaction_type)
             message = f"{reaction_type} added"
+            if reaction_type == 'like' and comment.user and comment.user != request.user:
+                adjust_points(comment.user, upvote_points)
 
         like_count = comment.reactions.filter(reaction="like").count()
         dislike_count = comment.reactions.filter(reaction="dislike").count()
