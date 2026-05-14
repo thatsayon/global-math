@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Conversation, Message
+from .models import Conversation, Message, BlockUser, ReportUser
+from django.db.models import Q
 
 UserAccount = get_user_model()
 
@@ -13,6 +14,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     last_message_time = serializers.SerializerMethodField()
     other_user_avatar = serializers.SerializerMethodField()
     unread_count = serializers.IntegerField()
+    is_blocked = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -25,7 +27,8 @@ class ConversationSerializer(serializers.ModelSerializer):
             'last_message_sender',
             'last_message_is_me',
             'last_message_time',
-            'unread_count'
+            'unread_count',
+            'is_blocked'
         ]
 
     def get_other_user_id(self, obj):
@@ -84,6 +87,29 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_last_message_time(self, obj):
         last_msg = self.get_last_message_obj(obj)
         return last_msg.created_at if last_msg else None
+
+    def get_is_blocked(self, obj):
+        other_user = self.get_other_user(obj)
+        user = self.context['request'].user
+        if not other_user:
+            return False
+        
+        return BlockUser.objects.filter(
+            Q(blocker=user, blocked_user=other_user) | 
+            Q(blocker=other_user, blocked_user=user)
+        ).exists()
+
+class BlockUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlockUser
+        fields = ['id', 'blocker', 'blocked_user', 'created_at']
+        read_only_fields = ['id', 'created_at', 'blocker']
+
+class ReportUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReportUser
+        fields = ['id', 'reporter', 'reported_user', 'reason', 'created_at']
+        read_only_fields = ['id', 'created_at', 'reporter']
 
 class ConversationDetailSerializer(serializers.ModelSerializer):
     sender = serializers.SerializerMethodField()

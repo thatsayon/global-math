@@ -9,10 +9,12 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import Conversation, ConversationParticipant, Message
+from .models import Conversation, ConversationParticipant, Message, BlockUser, ReportUser
 from .serializers import (
     ConversationSerializer,
     ConversationDetailSerializer,
+    BlockUserSerializer,
+    ReportUserSerializer,
 )
 from .pagination import (
     ChatPagination,
@@ -148,3 +150,66 @@ class ConversationDetailView(APIView):
 
         return paginator.get_paginated_response(serializer.data)
 
+
+class BlockUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        blocked_user_id = request.data.get("blocked_user_id")
+        if not blocked_user_id:
+            return Response({"detail": "blocked_user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if str(request.user.id) == str(blocked_user_id):
+            return Response({"detail": "Cannot block yourself."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        blocked_user = get_object_or_404(User, id=blocked_user_id)
+        
+        block, created = BlockUser.objects.get_or_create(
+            blocker=request.user,
+            blocked_user=blocked_user
+        )
+        
+        if created:
+            return Response({"detail": "User blocked successfully."}, status=status.HTTP_201_CREATED)
+        return Response({"detail": "User is already blocked."}, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        blocked_user_id = request.data.get("blocked_user_id")
+        if not blocked_user_id:
+            return Response({"detail": "blocked_user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        blocked_user = get_object_or_404(User, id=blocked_user_id)
+        
+        deleted, _ = BlockUser.objects.filter(
+            blocker=request.user,
+            blocked_user=blocked_user
+        ).delete()
+        
+        if deleted:
+            return Response({"detail": "User unblocked successfully."}, status=status.HTTP_200_OK)
+        return Response({"detail": "User is not blocked."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReportUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        reported_user_id = request.data.get("reported_user_id")
+        reason = request.data.get("reason")
+        
+        if not reported_user_id or not reason:
+            return Response({"detail": "reported_user_id and reason are required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if str(request.user.id) == str(reported_user_id):
+            return Response({"detail": "Cannot report yourself."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        reported_user = get_object_or_404(User, id=reported_user_id)
+        
+        report = ReportUser.objects.create(
+            reporter=request.user,
+            reported_user=reported_user,
+            reason=reason
+        )
+        
+        serializer = ReportUserSerializer(report)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

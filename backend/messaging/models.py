@@ -51,3 +51,28 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender}: {self.content[:20]}"
+
+
+class BlockUser(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    blocker = models.ForeignKey(User, on_delete=models.CASCADE, related_name="blocking")
+    blocked_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="blocked_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("blocker", "blocked_user")
+
+    def __str__(self):
+        return f"{self.blocker} blocked {self.blocked_user}"
+
+
+class ReportUser(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reports_made")
+    reported_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reports_received")
+    reason = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.reporter} reported {self.reported_user}"
+

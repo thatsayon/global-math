@@ -4,6 +4,7 @@ from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from django.db import transaction
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
@@ -13,6 +14,7 @@ from .models import (
     Conversation,
     ConversationParticipant,
     Message,
+    BlockUser,
 )
 
 import socketio
@@ -49,6 +51,14 @@ def get_user_from_token(token: str):
 def save_message_to_db(sender_id: str, receiver_id: str, content: str):
     sender = User.objects.get(id=sender_id)
     receiver = User.objects.get(id=receiver_id)
+
+    is_blocked = BlockUser.objects.filter(
+        Q(blocker=sender, blocked_user=receiver) | 
+        Q(blocker=receiver, blocked_user=sender)
+    ).exists()
+
+    if is_blocked:
+        return {"error": "Cannot send message. User is blocked."}
 
     # Find or create 1-on-1 conversation
     conversation = Conversation.objects.filter(
@@ -121,6 +131,10 @@ async def send_message(sid, data):
     # Save message in DB
     saved_message = await save_message_to_db(sender_id, to_user, message_text)
 
+    if isinstance(saved_message, dict) and "error" in saved_message:
+        await sio.emit("error", {"error": saved_message["error"]}, to=sid)
+        return
+
     # Prepare payload
     payload = {
         "id": str(saved_message.id),
@@ -165,6 +179,10 @@ async def receive_message(sid, data):
 
     # Save to DB (placeholder)
     saved_message = await save_message_to_db(sender_id, to_user, message)
+
+    if isinstance(saved_message, dict) and "error" in saved_message:
+        await sio.emit("error", {"error": saved_message["error"]}, to=sid)
+        return
 
     # Find recipient session
     recipient_sid = user_sid_map.get(to_user)
