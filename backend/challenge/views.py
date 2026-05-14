@@ -106,7 +106,7 @@ class DashboardView(APIView):
 
             challenge_data.append({
                 "id": str(c.id),
-                "name": c.name,
+                "name": c.get_full_name(),
                 "subject": c.subject.name,
                 "grade": c.grade,
                 "points": c.points,
