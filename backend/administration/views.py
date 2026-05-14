@@ -279,6 +279,7 @@ class ChallengeGenerationView(APIView):
                 timeout=20
             )
         except requests.RequestException as e:
+            print(f"Error connecting to AI service at {ai_base_url}/generate-question: {e}")
             return Response(
                 {"error": "Failed to reach AI service", "details": str(e)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
