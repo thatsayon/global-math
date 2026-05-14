@@ -110,10 +110,7 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
         return f"{self.username} ({self.email})"
 
     def get_full_name(self):
-        return self.full_name
-
-    def get_username(self):
-        return self.username
+        return f"{self.first_name} {self.last_name}"
 
     class Meta:
         verbose_name = _("User Account")
