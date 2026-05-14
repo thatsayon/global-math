@@ -357,7 +357,7 @@ class LeaderboardView(APIView):
 
             ranked.append({
                 "rank": idx,
-                "name": user.full_name,
+                "name": user.get_full_name(),
                 "country": user.country,
                 "points": p.total_points,
                 "profile_pic": (
