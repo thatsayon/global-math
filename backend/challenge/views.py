@@ -41,7 +41,7 @@ class DashboardView(APIView):
 
         leaderboard = [
             {
-                "name": p.student.account.user.username,
+                "name": p.student.account.user.get_full_name(),
                 "points": p.total_points,
                 "country": p.student.account.user.country
             }
