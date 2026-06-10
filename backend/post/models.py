@@ -153,6 +153,12 @@ class CommentModel(models.Model):
         blank=True,
         null=True
     )
+    language = models.CharField(
+        max_length=10,
+        choices=User.LANGUAGE_CHOICES,
+        default='en',
+        help_text="Original language of the comment"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -168,6 +174,20 @@ class CommentModel(models.Model):
         # Ensure at least one field is filled (text, image, or video)
         if not self.text and not self.image and not self.video:
             raise ValidationError("A comment must contain text, an image, or a video.")
+
+
+class CommentTranslation(models.Model):
+    comment = models.ForeignKey(CommentModel, related_name='translations', on_delete=models.CASCADE)
+    language = models.CharField(max_length=10)
+    translated_text = models.TextField()
+
+    class Meta:
+        unique_together = ('comment', 'language')
+        verbose_name = "Comment Translation"
+        verbose_name_plural = "Comment Translations"
+
+    def __str__(self):
+        return f"{self.comment.id} ({self.language})"
 
 
 class CommentReaction(models.Model):

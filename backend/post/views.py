@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, status, permissions
+from rest_framework.exceptions import PermissionDenied
 
 from django.db.models import Count, Case, When, IntegerField, Value, F, Q
 from django.db.models.functions import Coalesce, Random
@@ -52,8 +53,7 @@ class PostDeleteView(generics.DestroyAPIView):
     lookup_url_kwarg = "post_id"
 
     def get_queryset(self):
-        # Limit queryset to authenticated user's posts only
-        return PostModel.objects.filter(user=self.request.user)
+        return PostModel.objects.all()
 
     def get_object(self):
         obj = super().get_object()
@@ -62,6 +62,23 @@ class PostDeleteView(generics.DestroyAPIView):
             raise PermissionDenied("You do not have permission to delete this post.")
 
         return obj
+
+
+class CommentDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "comment_id"
+
+    def get_queryset(self):
+        return CommentModel.objects.all()
+
+    def get_object(self):
+        obj = super().get_object()
+
+        if obj.user != self.request.user:
+            raise PermissionDenied("You do not have permission to delete this comment.")
+
+        return obj
+
 
 
 class PostFeedView(APIView):
@@ -249,7 +266,10 @@ class CommentView(APIView):
 
         serializer = CommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=request.user, post=post)
+        comment = serializer.save(user=request.user, post=post, language=request.user.language or 'en')
+
+        from .tasks import translate_comment_task
+        translate_comment_task.delay(str(comment.id))
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

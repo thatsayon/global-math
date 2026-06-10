@@ -7,6 +7,7 @@ from .views import (
     CommentView,
     CommentReactionView,
     PostDetailView,
+    CommentDeleteView,
 )
     
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('react/<post_id>/', PostLikeDislikeView.as_view(), name='React'),
     path('comment/<post_id>/', CommentView.as_view(), name='Comment'),
     path('comment-react/<comment_id>/', CommentReactionView.as_view(), name='Comment React'),
+    path('comment-delete/<uuid:comment_id>/', CommentDeleteView.as_view(), name='Comment Delete'),
 ]

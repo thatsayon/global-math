@@ -6,7 +6,7 @@ import tempfile
 import logging
 
 from core.utils import translate_text
-from .models import PostModel, PostTranslation
+from .models import PostModel, PostTranslation, CommentModel, CommentTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -94,4 +94,33 @@ def translate_post_task(post_id):
             language=lang,
             defaults={'translated_text': translated}
         )
+
+
+@shared_task
+def translate_comment_task(comment_id):
+    try:
+        comment = CommentModel.objects.get(id=comment_id)
+    except CommentModel.DoesNotExist:
+        logger.warning(f"Comment {comment_id} does not exist.")
+        return {"status": "not_found", "comment_id": comment_id}
+
+    source_lang = comment.language or 'en'
+    target_languages = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'he']
+
+    for lang in target_languages:
+        if lang == source_lang:
+            continue
+        if not comment.text:
+            continue
+        try:
+            translated = translate_text(comment.text, target_lang=lang, source_lang=source_lang)
+            CommentTranslation.objects.update_or_create(
+                comment=comment,
+                language=lang,
+                defaults={'translated_text': translated}
+            )
+        except Exception as e:
+            logger.error(f"Failed to translate comment {comment_id} to {lang}: {str(e)}")
+
+    return {"status": "success", "comment_id": comment_id}
 
