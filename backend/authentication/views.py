@@ -217,14 +217,15 @@ class ResendForgetPassOTPView(APIView):
 class AccountDeleteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
+    def delete(self, request):
         user = request.user
-
         user.delete()
-
         return Response({
             "msg": "user deleted successfully"
-        }, status=status.HTTP_204_NO_CONTENT)
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        return self.delete(request)
 
 class CustomTokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
