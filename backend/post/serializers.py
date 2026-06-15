@@ -128,7 +128,6 @@ class CommentSerializer(serializers.ModelSerializer):
     like_count = serializers.SerializerMethodField()
     dislike_count = serializers.SerializerMethodField()
     user_reaction = serializers.SerializerMethodField()
-    text = serializers.SerializerMethodField()
     user_id = serializers.SerializerMethodField()
 
 
@@ -188,16 +187,17 @@ class CommentSerializer(serializers.ModelSerializer):
             return reaction.reaction if reaction else None
         return None
 
-    def get_text(self, obj):
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
             user_lang = user.language or 'en'
-            if user_lang == obj.language:
-                return obj.text
-            translation = obj.translations.filter(language=user_lang).first()
-            return translation.translated_text if translation else obj.text
-        return obj.text
+            if user_lang != instance.language:
+                translation = instance.translations.filter(language=user_lang).first()
+                if translation:
+                    ret['text'] = translation.translated_text
+        return ret
 
     def validate(self, data):
         """
