@@ -75,6 +75,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     text = serializers.SerializerMethodField()
     post_level_name = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
@@ -82,7 +83,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
             "id", "user", "text", "image",
             "full_name", "profile_pic",
             "likes", "user_reaction", "post_level",
-            "post_level_name", "created_at"
+            "post_level_name", "created_at", "comment_count"
         )
 
     def get_full_name(self, obj):
@@ -120,6 +121,9 @@ class PostFeedSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
         reaction = obj.reactions.filter(user=user).first()
         return reaction.reaction if reaction else None
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
 
 
 class CommentSerializer(serializers.ModelSerializer):
