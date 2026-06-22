@@ -233,7 +233,7 @@ class LevelAdjustmentUpdateView(generics.RetrieveUpdateAPIView):
     lookup_field = 'id'
 
 class LevelDeleteView(generics.DestroyAPIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
     queryset = MathLevels.objects.all()
     lookup_field = 'id'
 
