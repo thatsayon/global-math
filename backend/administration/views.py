@@ -27,7 +27,7 @@ from account.models import (
     StudentProgress,
 )
 from administration.models import DailyChallenge, ActivityLog
-from post.models import PostModel
+from post.models import PostModel, CommentModel
 
 from .models import (
     MathLevels,
@@ -62,6 +62,10 @@ from .serializers import (
     # support serializers
     SupportTicketListSerializer,
     SupportMessageSerializer,
+
+    # content moderation serializers
+    PostAdminSerializer,
+    CommentAdminSerializer,
 )
 
 import os
@@ -235,6 +239,36 @@ class LevelAdjustmentUpdateView(generics.RetrieveUpdateAPIView):
 class LevelDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
     queryset = MathLevels.objects.all()
+    lookup_field = 'id'
+
+class PostAdminListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    serializer_class = PostAdminSerializer
+    pagination_class = PageNumberPagination
+    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    search_fields = ['text', 'user__first_name', 'user__last_name', 'user__username']
+
+    def get_queryset(self):
+        return PostModel.objects.select_related('user', 'classroom').prefetch_related('comments').order_by('-created_at')
+
+class PostAdminDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    queryset = PostModel.objects.all()
+    lookup_field = 'id'
+
+class CommentAdminListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    serializer_class = CommentAdminSerializer
+    pagination_class = PageNumberPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['text', 'user__first_name', 'user__last_name', 'user__username']
+
+    def get_queryset(self):
+        return CommentModel.objects.select_related('user', 'post').order_by('-created_at')
+
+class CommentAdminDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    queryset = CommentModel.objects.all()
     lookup_field = 'id'
 
 class PointAdjustmentView(generics.RetrieveUpdateAPIView):

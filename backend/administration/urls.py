@@ -33,6 +33,12 @@ from .views import (
     SupportInboxView,
     SupportMessageListView,
     SupportReplyView,
+
+    # content moderation views
+    PostAdminListView,
+    PostAdminDeleteView,
+    CommentAdminListView,
+    CommentAdminDeleteView,
 )
 
 urlpatterns = [
@@ -70,4 +76,10 @@ urlpatterns = [
     path('support-message/', SupportInboxView.as_view(), name='Support View'),
     path('support-message/<uuid:ticket_id>/', SupportMessageListView.as_view(), name='Support Message List'),
     path('support-message-reply/<uuid:ticket_id>/', SupportReplyView.as_view(), name='Support Message Reply'),
+
+    # content moderation urls
+    path('admin-posts/', PostAdminListView.as_view(), name='Admin Post List'),
+    path('admin-posts/<uuid:id>/', PostAdminDeleteView.as_view(), name='Admin Post Delete'),
+    path('admin-comments/', CommentAdminListView.as_view(), name='Admin Comment List'),
+    path('admin-comments/<uuid:id>/', CommentAdminDeleteView.as_view(), name='Admin Comment Delete'),
 ]

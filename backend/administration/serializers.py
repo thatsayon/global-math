@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 
-from post.models import PostModel
+from post.models import PostModel, CommentModel
 
 from .models import (
     RecentActivity,
@@ -123,6 +123,35 @@ class ModerationUserSerializer(serializers.ModelSerializer):
 class ModerationSerializer(serializers.Serializer):
     top = ModerationTopSerializer()
     users = ModerationUserSerializer(many=True)
+
+class PostAuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "first_name", "last_name", "username", "role")
+
+class PostAdminSerializer(serializers.ModelSerializer):
+    author = PostAuthorSerializer(source="user", read_only=True)
+    comment_count = serializers.SerializerMethodField()
+    classroom_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostModel
+        fields = ("id", "author", "text", "image", "video", "classroom_name", "created_at", "comment_count", "is_verified")
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
+
+    def get_classroom_name(self, obj):
+        return obj.classroom.name if obj.classroom else None
+
+class CommentAdminSerializer(serializers.ModelSerializer):
+    author = PostAuthorSerializer(source="user", read_only=True)
+    post_id = serializers.UUIDField(source="post.id", read_only=True)
+    post_text = serializers.CharField(source="post.text", read_only=True)
+
+    class Meta:
+        model = CommentModel
+        fields = ("id", "author", "text", "image", "post_id", "post_text", "created_at")
 
 class MathLevelsSerializer(serializers.ModelSerializer):
     class Meta:
