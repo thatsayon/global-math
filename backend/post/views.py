@@ -98,6 +98,7 @@ class PostFeedView(APIView):
             qs = (
                 PostModel.objects
                 .filter(classroom__isnull=True)
+                .exclude(user=user)
                 .select_related("user", "post_level")
                 .annotate(
                     like_count=Count("reactions", filter=Q(reactions__reaction="like")),
