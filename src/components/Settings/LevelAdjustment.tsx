@@ -22,12 +22,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateMathLevelMutation,
   useGetMathLevelsQuery,
   useUpdateMathLevelMutation,
+  useDeleteMathLevelMutation,
 } from "@/store/slices/api/profileApiSlice";
 import { useState } from "react";
 import { LoadingState } from "../elements/Loading";
@@ -42,9 +43,13 @@ export default function LevelAdjustment() {
   const { data: levelsData, isLoading } = useGetMathLevelsQuery();
   const [createLevel, { isLoading: creating }] = useCreateMathLevelMutation();
   const [updateLevel, { isLoading: updating }] = useUpdateMathLevelMutation();
+  const [deleteLevel, { isLoading: deleting }] = useDeleteMathLevelMutation();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const addForm = useForm<LevelFormData>({
     resolver: zodResolver(levelSchema),
@@ -86,6 +91,22 @@ export default function LevelAdjustment() {
       toast.error("Failed", {
         description: err.data?.name || "Update failed",
       });
+    }
+  };
+
+  const openDelete = (id: string) => {
+    setDeletingId(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const onConfirmDelete = async () => {
+    if (!deletingId) return;
+    try {
+      await deleteLevel(deletingId).unwrap();
+      toast.success("Level Deleted");
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to delete level");
     }
   };
 
@@ -140,6 +161,15 @@ export default function LevelAdjustment() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-2"
+                    onClick={() => openDelete(level.id)}
+                    disabled={deleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -170,6 +200,32 @@ export default function LevelAdjustment() {
               disabled={updating}
             >
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Level</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-gray-600">Are you sure you want to delete this level? This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onConfirmDelete}
+              disabled={deleting}
+            >
+              Delete Level
             </Button>
           </DialogFooter>
         </DialogContent>

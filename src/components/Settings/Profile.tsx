@@ -25,7 +25,7 @@ const profileSchema = z.object({
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(6, "Current password is required"),
+    currentPassword: z.string().min(1, "Current password is required"),
     newPassword: z
       .string()
       .min(6, "New password must be at least 6 characters"),
@@ -99,18 +99,18 @@ export default function Profile() {
         profile_pic: selectedFile || undefined,
       }).unwrap();
 
-      if(!response.access_token) {
-        return toast.error(response.first_name)
+      if (response.access_token) {
+        setCookie("access_token", response.access_token, 1);
       }
-      setCookie("access_token", response.access_token,1)
 
       toast.success("Profile Updated", {
         description: "Your profile has been updated successfully.",
       });
     } catch (error) {
-      const err = error as { data: { detail: string } };
+      const err = error as { data: { detail?: string; first_name?: string[]; last_name?: string[]; profile_pic?: string[] } };
+      const errorMessage = err?.data?.detail || err?.data?.first_name?.[0] || err?.data?.last_name?.[0] || err?.data?.profile_pic?.[0] || "Something went wrong";
       toast.error("Update Failed", {
-        description: err?.data?.detail || "Something went wrong",
+        description: errorMessage,
       });
     }
   };
@@ -126,10 +126,16 @@ export default function Profile() {
       });
       passwordForm.reset();
     } catch (error) {
-      const err = error as { data: { detail: string } };
+      const err = error as { data: { detail?: string; current_password?: string[]; new_password?: string[] } };
+      
+      const errorMessage = 
+        err?.data?.detail || 
+        err?.data?.current_password?.[0] || 
+        err?.data?.new_password?.[0] || 
+        "An error occurred while updating the password";
 
       toast.error("Password Update Failed", {
-        description: err?.data?.detail || "Invalid current password",
+        description: errorMessage,
       });
     }
   };

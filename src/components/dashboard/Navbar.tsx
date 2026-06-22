@@ -17,6 +17,7 @@ const Navbar = ({ onMenuClick }: { onMenuClick?: () => void }) => {
       dashboard: "Dashboard Overview",
       "user-management": "User Management",
       moderation: "Moderation",
+      "content-moderation": "Content Moderation",
       "analytics-reports": "Analytics and Reports",
       profile: "Profile",
       "ai-question-generator": "AI Question Generator",

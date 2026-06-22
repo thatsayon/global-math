@@ -121,10 +121,10 @@ const UserManagement: React.FC = () => {
   };
 
   return (
-    <div className="p-8 min-h-screen">
+    <div className="p-8 min-h-screen bg-gray-50/30">
       <div className="max-w-[1920px] mx-auto">
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -184,8 +184,8 @@ const UserManagement: React.FC = () => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-white">
             <h2 className="text-lg font-semibold text-gray-900">
               Users ({isFetching ? "..." : usersData?.count ?? 0})
             </h2>
@@ -193,14 +193,14 @@ const UserManagement: React.FC = () => {
 
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>No</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Join Date</TableHead>
+              <TableHeader className="bg-gray-50/80">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="py-4 w-16 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">No</TableHead>
+                  <TableHead className="py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">User</TableHead>
+                  <TableHead className="py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</TableHead>
+                  <TableHead className="py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Login</TableHead>
+                  <TableHead className="py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Join Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -221,14 +221,14 @@ const UserManagement: React.FC = () => {
                   </TableRow>
                 ) : (
                   usersData.results.map((user, index) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">
+                    <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors group">
+                      <TableCell className="font-medium text-gray-600 py-4 w-16 text-center">
                         {(page - 1) * 10 + index + 1}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-4">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-gray-200 text-gray-700">
+                          <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-medium">
                               {getInitials(
                                 `${user.first_name} ${user.last_name}`
                               )}
@@ -244,32 +244,34 @@ const UserManagement: React.FC = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-4">
                         <Badge
                           variant="secondary"
                           className={
                             user.role === "teacher"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200/50 hover:bg-indigo-100 rounded-full px-3 py-0.5 font-medium"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200/50 hover:bg-emerald-100 rounded-full px-3 py-0.5 font-medium"
                           }
                         >
                           {user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-4">
                         <Badge
                           variant="secondary"
                           className={
                             user.is_banned
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200/50 hover:bg-rose-100 rounded-full px-3 py-0.5 font-medium"
+                              : "bg-teal-50 text-teal-700 border border-teal-200/50 hover:bg-teal-100 rounded-full px-3 py-0.5 font-medium"
                           }
                         >
                           {user.is_banned ? "Banned" : "Active"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-gray-500">—</TableCell>
-                      <TableCell className="text-gray-500">
+                      <TableCell className="text-gray-500 py-4">
+                        {user.last_login ? formatDate(user.last_login) : "Never"}
+                      </TableCell>
+                      <TableCell className="text-gray-500 py-4 font-medium">
                         {formatDate(user.date_joined)}
                       </TableCell>
                     </TableRow>

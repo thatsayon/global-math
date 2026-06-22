@@ -70,6 +70,15 @@ export const profileApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Level"]
     }),
+
+    deleteMathLevel: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/admin-api/level-delete/${id}/`,
+        method: "DELETE",
+        credentials: "include"
+      }),
+      invalidatesTags: ["Level"]
+    }),
   }),
   overrideExisting: false
 });
@@ -81,4 +90,5 @@ export const {
   useGetMathLevelsQuery,
   useCreateMathLevelMutation,
   useUpdateMathLevelMutation,
+  useDeleteMathLevelMutation,
 } = profileApiSlice;

@@ -5,11 +5,11 @@ function Logo() {
   return (
     <div>
       <Image
-      src={"/Logo.png"}
+      src={"/logo.png"}
       alt='Logo'
       width={150}
       height={50}
-      className='object-cover'
+      className='object-contain'
       />
     </div>
   )

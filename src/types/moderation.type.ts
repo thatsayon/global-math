@@ -32,3 +32,47 @@ export interface BanUserResponse {
 
 export type UnbanUserRequest = BanUserRequest;
 export type UnbanUserResponse = BanUserResponse;
+
+export interface PostAuthor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  role: string;
+}
+
+export interface AdminPost {
+  id: string;
+  author: PostAuthor | null;
+  text: string | null;
+  image: string | null;
+  video: string | null;
+  classroom_name: string | null;
+  created_at: string;
+  comment_count: number;
+  is_verified: boolean;
+}
+
+export interface AdminComment {
+  id: string;
+  author: PostAuthor | null;
+  text: string | null;
+  image: string | null;
+  post_id: string;
+  post_text: string | null;
+  created_at: string;
+}
+
+export interface AdminPostsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AdminPost[];
+}
+
+export interface AdminCommentsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AdminComment[];
+}

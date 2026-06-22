@@ -1,6 +1,7 @@
 "use client";
 import {
   BarChart3,
+  FileX,
   Headphones,
   LogOut,
   Settings,
@@ -31,6 +32,11 @@ const Sidebar = ({
       path: "/dashboard/user-management",
     },
     { name: "Moderation", icon: Shield, path: "/dashboard/moderation" },
+    {
+      name: "Content Moderation",
+      icon: FileX,
+      path: "/dashboard/content-moderation",
+    },
     {
       name: "Analytics and reports",
       icon: BarChart3,

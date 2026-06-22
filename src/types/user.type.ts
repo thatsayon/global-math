@@ -7,6 +7,7 @@ export interface User {
   role: string;
   is_banned: boolean;
   date_joined: string;
+  last_login: string | null;
 }
 
 export interface UsersResponse {

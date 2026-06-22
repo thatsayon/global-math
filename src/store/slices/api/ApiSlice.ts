@@ -8,7 +8,7 @@ export const apiSlice = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_URL || "https://api.mathos.cloud",
     prepareHeaders: (headers) => {
-      headers.set("Content-Type", "application/json");
+
 
       if (typeof window !== "undefined") {
         const accessToken = document.cookie

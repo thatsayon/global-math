@@ -6,6 +6,8 @@ import {
   BanUserResponse,
   UnbanUserRequest,
   UnbanUserResponse,
+  AdminPostsResponse,
+  AdminCommentsResponse,
 } from "@/types/moderation.type";
 
 export const moderationApiSlice = apiSlice.injectEndpoints({
@@ -14,11 +16,17 @@ export const moderationApiSlice = apiSlice.injectEndpoints({
       ModerationResponse,
       { page?: number; filter?: string }
     >({
-      query: ({ page = 1, filter = "all" }) => ({
-        url: "/admin-api/moderation/",
-        params: { page, filter },
-      }),
-      providesTags:["Moderation"]
+      query: ({ page = 1, filter = "all" }) => {
+        const params: Record<string, any> = { page };
+        if (filter === "student") params.role = "student";
+        if (filter === "teacher") params.role = "teacher";
+        if (filter === "banned") params.is_banned = "true";
+        return {
+          url: "/admin-api/moderation/",
+          params,
+        };
+      },
+      providesTags: ["Moderation"],
     }),
 
     banUser: builder.mutation<BanUserResponse, BanUserRequest>({
@@ -27,7 +35,7 @@ export const moderationApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Moderation"]
+      invalidatesTags: ["Moderation"],
     }),
 
     unbanUser: builder.mutation<UnbanUserResponse, UnbanUserRequest>({
@@ -36,13 +44,50 @@ export const moderationApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Moderation"]
+      invalidatesTags: ["Moderation"],
+    }),
+
+    getAdminPosts: builder.query<AdminPostsResponse, { page?: number; search?: string }>({
+      query: ({ page = 1, search = "" }) => ({
+        url: "/admin-api/admin-posts/",
+        params: { page, ...(search ? { search } : {}) },
+      }),
+      providesTags: ["Moderation"],
+    }),
+
+    deleteAdminPost: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/admin-api/admin-posts/${id}/`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Moderation"],
+    }),
+
+    getAdminComments: builder.query<AdminCommentsResponse, { page?: number; search?: string }>({
+      query: ({ page = 1, search = "" }) => ({
+        url: "/admin-api/admin-comments/",
+        params: { page, ...(search ? { search } : {}) },
+      }),
+      providesTags: ["Moderation"],
+    }),
+
+    deleteAdminComment: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/admin-api/admin-comments/${id}/`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Moderation"],
     }),
   }),
+  overrideExisting: false,
 });
 
 export const {
   useGetModerationDataQuery,
   useBanUserMutation,
   useUnbanUserMutation,
+  useGetAdminPostsQuery,
+  useDeleteAdminPostMutation,
+  useGetAdminCommentsQuery,
+  useDeleteAdminCommentMutation,
 } = moderationApiSlice;
