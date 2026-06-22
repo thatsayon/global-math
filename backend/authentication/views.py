@@ -39,8 +39,14 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
+        access_token = CustomTokenObtainPairSerializer.get_token(user).access_token
+        refresh_token = CustomTokenObtainPairSerializer.get_token(user)
+
         response_data = {
-            "msg": "User registered successfully"
+            "msg": "User registered successfully",
+            "access": str(access_token),
+            "refresh": str(refresh_token),
+            "role": user.role
         }
 
         try:
