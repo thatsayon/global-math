@@ -92,7 +92,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
         return None
 
     def get_profile_pic(self, obj):
-        if obj.user.profile_pic:
+        if obj.user and obj.user.profile_pic:
             return obj.user.profile_pic.url
         return None
 
