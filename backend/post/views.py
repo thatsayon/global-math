@@ -122,7 +122,6 @@ class PostFeedView(APIView):
                         default=Value(0),
                         output_field=IntegerField(),
                     ),
-                    random_jitter=Random() * 3,
                 )
                 .annotate(
                     rank_score=(
@@ -130,7 +129,6 @@ class PostFeedView(APIView):
                         + F("verified_score")
                         + F("media_score")
                         + F("engagement_score")
-                        + F("random_jitter")
                     )
                 )
                 .order_by("-rank_score", "-created_at")
@@ -142,14 +140,17 @@ class PostFeedView(APIView):
             return qs
 
         # -----------------------------
-        # Primary attempt (exclude seen)
+        # Determine if we should exclude seen (only on page 1)
         # -----------------------------
-        queryset = base_queryset(exclude_seen=True)
+        page_param = request.query_params.get('page', '1')
+        is_first_page = page_param == '1' or page_param == 1
+
+        queryset = base_queryset(exclude_seen=is_first_page)
 
         # -----------------------------
         # FALLBACK: nothing left → relax exclusion
         # -----------------------------
-        if not queryset.exists():
+        if is_first_page and not queryset.exists():
             queryset = base_queryset(exclude_seen=False)
 
         paginator = PostFeedPagination()
