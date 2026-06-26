@@ -588,3 +588,36 @@ class ClassroomLeaderboardView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+class LeaveClassroomView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        classroom_id = request.data.get("classroom_id")
+
+        if not classroom_id:
+            return Response(
+                {"error": "classroom_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+        user = request.user
+
+        member_entry = ClassroomMemberList.objects.filter(user=user, classroom=classroom).first()
+
+        if not member_entry:
+            return Response(
+                {"message": "You are not a member of this classroom."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        member_entry.delete()
+
+        classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
+        classroom.save(update_fields=["members_count"])
+
+        return Response(
+            {"message": "Successfully left the classroom."},
+            status=status.HTTP_200_OK
+        )
