@@ -171,9 +171,9 @@ class CommentModel(models.Model):
         return f"Comment by {self.user} on {self.post}"
 
     def clean(self):
-        # Ensure at least one field is filled (text, image, or video)
-        if not self.text and not self.image and not self.video:
-            raise ValidationError("A comment must contain text, an image, or a video.")
+        # Ensure at least one field is filled (text or image)
+        if not self.text and not self.image:
+            raise ValidationError("A comment must contain text or an image.")
 
 
 class CommentTranslation(models.Model):

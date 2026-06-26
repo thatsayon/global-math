@@ -193,6 +193,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
+        if instance.image:
+            ret['image'] = instance.image.url
+            
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if user and user.is_authenticated:
