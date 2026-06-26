@@ -25,6 +25,7 @@ from .models import (
     CommentModel,
     CommentReaction,
     PostView,
+    PostNotInterested,
 )
 
 class PostDetailView(generics.RetrieveAPIView):
@@ -136,6 +137,12 @@ class PostFeedView(APIView):
 
             if exclude_seen:
                 qs = qs.exclude(id__in=recently_seen)
+
+            # Always exclude posts the user marked as not interested
+            not_interested_ids = PostNotInterested.objects.filter(
+                user=user
+            ).values_list("post_id", flat=True)
+            qs = qs.exclude(id__in=not_interested_ids)
 
             return qs
 
@@ -339,11 +346,30 @@ class CommentReactionView(APIView):
         like_count = comment.reactions.filter(reaction="like").count()
         dislike_count = comment.reactions.filter(reaction="dislike").count()
 
-        return Response({
-            "message": message,
-            "comment_id": str(comment.id),
-            "like_count": like_count,
-            "dislike_count": dislike_count,
-            "user_reaction": reaction_type if "added" in message or "Changed" in message else None
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "message": message,
+                "like_count": like_count,
+                "dislike_count": dislike_count,
+                "user_reaction": reaction_type if "added" in message or "Changed" in message else None
+            }, status=status.HTTP_200_OK)
 
+
+class PostNotInterestedView(APIView):
+    """Mark a post as 'Not Interested' – excludes it from the user's feed."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            post = PostModel.objects.get(id=post_id)
+        except PostModel.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        obj, created = PostNotInterested.objects.get_or_create(
+            user=request.user,
+            post=post,
+        )
+        return Response(
+            {"msg": "Marked as not interested" if created else "Already marked"},
+            status=status.HTTP_200_OK,
+        )

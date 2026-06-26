@@ -237,3 +237,25 @@ class PostView(models.Model):
             models.Index(fields=["user", "viewed_at"]),
         ]
 
+
+class PostNotInterested(models.Model):
+    """Records posts a user has marked as 'Not Interested'."""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="not_interested_posts"
+    )
+    post = models.ForeignKey(
+        PostModel,
+        on_delete=models.CASCADE,
+        related_name="not_interested_by"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "post")
+        verbose_name = "Post Not Interested"
+        verbose_name_plural = "Post Not Interested"
+
+    def __str__(self):
+        return f"{self.user} not interested in {self.post.id}"
