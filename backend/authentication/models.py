@@ -83,6 +83,7 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(default=timezone.now)
     is_banned = models.BooleanField(default=False)
+    notification_seen_at = models.DateTimeField(null=True, blank=True)
 
     warning = models.PositiveIntegerField(default=0)
 

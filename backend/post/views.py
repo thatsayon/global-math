@@ -409,3 +409,52 @@ class PostNotInterestedView(APIView):
             {"msg": "Marked as not interested" if created else "Already marked"},
             status=status.HTTP_200_OK,
         )
+
+
+class NotificationCountView(APIView):
+    """Returns the count of new likes and comments on the user's posts since last seen."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        last_seen = user.notification_seen_at
+
+        user_post_ids = PostModel.objects.filter(user=user).values_list("id", flat=True)
+
+        if last_seen:
+            new_likes = PostReaction.objects.filter(
+                post_id__in=user_post_ids,
+                reaction="like",
+                created_at__gt=last_seen,
+            ).exclude(user=user).count()
+
+            new_comments = CommentModel.objects.filter(
+                post_id__in=user_post_ids,
+                created_at__gt=last_seen,
+            ).exclude(user=user).count()
+        else:
+            # First time — count last 7 days
+            cutoff = timezone.now() - timedelta(days=7)
+            new_likes = PostReaction.objects.filter(
+                post_id__in=user_post_ids,
+                reaction="like",
+                created_at__gt=cutoff,
+            ).exclude(user=user).count()
+
+            new_comments = CommentModel.objects.filter(
+                post_id__in=user_post_ids,
+                created_at__gt=cutoff,
+            ).exclude(user=user).count()
+
+        total = new_likes + new_comments
+        return Response({"count": total, "likes": new_likes, "comments": new_comments})
+
+
+class MarkNotificationsSeenView(APIView):
+    """Mark all notifications as seen (resets the red dot)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        request.user.notification_seen_at = timezone.now()
+        request.user.save(update_fields=["notification_seen_at"])
+        return Response({"msg": "Notifications marked as seen."}, status=status.HTTP_200_OK)
