@@ -132,7 +132,15 @@ class PostFeedView(APIView):
                         + F("engagement_score")
                     )
                 )
-                .order_by("-rank_score", "-created_at")
+                .annotate(
+                    score_tier=Case(
+                        When(rank_score__gte=40, then=Value(3)),
+                        When(rank_score__gte=15, then=Value(2)),
+                        default=Value(1),
+                        output_field=IntegerField(),
+                    )
+                )
+                .order_by("-score_tier", Random())
             )
 
             if exclude_seen:
