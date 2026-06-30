@@ -42,7 +42,7 @@ class PostDetailView(generics.RetrieveAPIView):
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
         return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).filter(
-            Q(classroom__isnull=False) | Q(post_level__isnull=True) | Q(post_level_id__in=user_levels)
+            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
         )
 
 class PostCreateView(APIView):
@@ -107,20 +107,9 @@ class PostFeedView(APIView):
         ).values_list("post_id", flat=True)
 
         def base_queryset(exclude_seen=True):
-            # If user has no math levels configured, show ALL global posts.
-            # If user has levels, show: (a) level-less posts + (b) posts matching their levels.
-            user_levels_list = list(user_levels)
-            if user_levels_list:
-                level_filter = (
-                    Q(post_level__isnull=True) | Q(post_level_id__in=user_levels_list)
-                )
-            else:
-                # No levels selected — show everything (level-less AND levelled posts)
-                level_filter = Q()
-
             qs = (
                 PostModel.objects
-                .filter(Q(classroom__isnull=True) & level_filter)
+                .filter(classroom__isnull=True, post_level_id__in=user_levels)
                 .exclude(user=user)
                 .select_related("user", "post_level")
                 .annotate(
@@ -130,10 +119,10 @@ class PostFeedView(APIView):
                 .annotate(
                     engagement_score=F("like_count") * 2 + F("comment_count") * 3,
                     topic_score=Case(
-                        When(post_level_id__in=user_levels_list, then=Value(30)),
+                        When(post_level_id__in=user_levels, then=Value(30)),
                         default=Value(0),
                         output_field=IntegerField(),
-                    ) if user_levels_list else Value(0, output_field=IntegerField()),
+                    ),
                     verified_score=Case(
                         When(is_verified=True, then=Value(10)),
                         default=Value(0),
