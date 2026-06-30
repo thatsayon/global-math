@@ -42,7 +42,7 @@ class PostDetailView(generics.RetrieveAPIView):
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
         return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).filter(
-            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
+            Q(classroom__isnull=False) | Q(post_level__isnull=True) | Q(post_level_id__in=user_levels)
         )
 
 class PostCreateView(APIView):
@@ -109,7 +109,10 @@ class PostFeedView(APIView):
         def base_queryset(exclude_seen=True):
             qs = (
                 PostModel.objects
-                .filter(classroom__isnull=True, post_level_id__in=user_levels)
+                .filter(
+                    Q(classroom__isnull=True) & 
+                    (Q(post_level__isnull=True) | Q(post_level_id__in=user_levels))
+                )
                 .exclude(user=user)
                 .select_related("user", "post_level")
                 .annotate(
