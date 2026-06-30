@@ -34,6 +34,13 @@ class PostDetailView(generics.RetrieveAPIView):
     serializer_class = PostFeedSerializer
     lookup_url_kwarg = 'post_id'
 
+    def get_queryset(self):
+        user = self.request.user
+        from messaging.models import BlockUser
+        blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
+        blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
+        return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users)
+
 class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -145,6 +152,12 @@ class PostFeedView(APIView):
 
             if exclude_seen:
                 qs = qs.exclude(id__in=recently_seen)
+
+            from messaging.models import BlockUser
+            blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
+            blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
+            qs = qs.exclude(user_id__in=blocked_users)
+            qs = qs.exclude(user_id__in=blocking_users)
 
             # Always exclude posts the user marked as not interested
             not_interested_ids = PostNotInterested.objects.filter(
@@ -296,7 +309,12 @@ class CommentView(APIView):
         except PostModel.DoesNotExist:
             return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        comments = post.comments.all().order_by('-created_at')
+        from messaging.models import BlockUser
+        user = request.user
+        blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
+        blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
+
+        comments = post.comments.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).order_by('-created_at')
         paginator = CommentPagination()
         result_page = paginator.paginate_queryset(comments, request)
         serializer = CommentSerializer(result_page, many=True, context={"request": request})

@@ -6,7 +6,7 @@ from rest_framework import views, status, permissions, generics
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.db.models.functions import TruncDate
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 
 from datetime import timedelta
@@ -113,6 +113,15 @@ class HelpSupportView(APIView):
 class OtherProfileView(APIView):
     def get(self, request, user_id):
         user = get_object_or_404(User, id=user_id)
+
+        from messaging.models import BlockUser
+        is_blocked = BlockUser.objects.filter(
+            Q(blocker=request.user, blocked_user=user) |
+            Q(blocker=user, blocked_user=request.user)
+        ).exists()
+
+        if is_blocked:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # paginate posts
         posts_qs = user.posts.order_by("-created_at")
