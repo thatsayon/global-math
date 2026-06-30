@@ -162,6 +162,12 @@ class BlockUserAPIView(APIView):
         if str(request.user.id) == str(blocked_user_id):
             return Response({"detail": "Cannot block yourself."}, status=status.HTTP_400_BAD_REQUEST)
             
+        import uuid
+        try:
+            uuid.UUID(str(blocked_user_id))
+        except ValueError:
+            return Response({"detail": "Invalid user ID format."}, status=status.HTTP_400_BAD_REQUEST)
+            
         blocked_user = get_object_or_404(User, id=blocked_user_id)
         
         block, created = BlockUser.objects.get_or_create(
@@ -178,6 +184,12 @@ class BlockUserAPIView(APIView):
         if not blocked_user_id:
             return Response({"detail": "blocked_user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
             
+        import uuid
+        try:
+            uuid.UUID(str(blocked_user_id))
+        except ValueError:
+            return Response({"detail": "Invalid user ID format."}, status=status.HTTP_400_BAD_REQUEST)
+
         blocked_user = get_object_or_404(User, id=blocked_user_id)
         
         deleted, _ = BlockUser.objects.filter(

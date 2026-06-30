@@ -90,18 +90,26 @@ class SupportMessageSerializer(serializers.ModelSerializer):
 class LatestPostSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     video = serializers.SerializerMethodField()
-
+    post_level_name = serializers.SerializerMethodField()
+    
     class Meta:
         model = PostModel
         fields = (
             'id',
+            'user',
             'text',
             'image',
             'video',
             'language',
             'is_verified',
             'created_at',
+            'post_level_name',
         )
+
+    def get_post_level_name(self, obj):
+        if obj.post_level:
+            return obj.post_level.name
+        return None
 
     def get_image(self, obj):
         return obj.image.url if obj.image else None
@@ -109,27 +117,7 @@ class LatestPostSerializer(serializers.ModelSerializer):
     def get_video(self, obj):
         return obj.video.url if obj.video else None
 
-class LatestPostSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-    video = serializers.SerializerMethodField()
 
-    class Meta:
-        model = PostModel
-        fields = (
-            "id",
-            "text",
-            "image",
-            "video",
-            "language",
-            "is_verified",
-            "created_at",
-        )
-
-    def get_image(self, obj):
-        return obj.image.url if obj.image else None
-
-    def get_video(self, obj):
-        return obj.video.url if obj.video else None
 
 class OtherProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.SerializerMethodField()

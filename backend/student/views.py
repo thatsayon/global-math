@@ -124,7 +124,10 @@ class OtherProfileView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # paginate posts
-        posts_qs = user.posts.order_by("-created_at")
+        user_levels = request.user.math_levels.values_list("id", flat=True)
+        posts_qs = user.posts.filter(
+            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
+        ).order_by("-created_at")
         paginator = LatestPostPagination()
         page = paginator.paginate_queryset(posts_qs, request)
 

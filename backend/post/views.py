@@ -36,10 +36,14 @@ class PostDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        user_levels = user.math_levels.values_list("id", flat=True)
         from messaging.models import BlockUser
+        from django.db.models import Q
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
-        return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users)
+        return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).filter(
+            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
+        )
 
 class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -105,7 +109,7 @@ class PostFeedView(APIView):
         def base_queryset(exclude_seen=True):
             qs = (
                 PostModel.objects
-                .filter(classroom__isnull=True)
+                .filter(classroom__isnull=True, post_level_id__in=user_levels)
                 .exclude(user=user)
                 .select_related("user", "post_level")
                 .annotate(
@@ -293,6 +297,12 @@ class CommentView(APIView):
             post = PostModel.objects.get(id=post_id)
         except PostModel.DoesNotExist:
             return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        user = request.user
+        if not post.classroom and post.post_level:
+            user_levels = user.math_levels.values_list("id", flat=True)
+            if post.post_level_id not in user_levels:
+                return Response({"error": "You do not have the required math level to respond to this post."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = CommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
