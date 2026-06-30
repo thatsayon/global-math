@@ -17,7 +17,8 @@ from .models import (
 class PostSerializer(serializers.ModelSerializer):
     post_level = serializers.PrimaryKeyRelatedField(
         queryset=MathLevels.objects.all(),
-        required=True
+        required=False,
+        allow_null=True
     )
 
     class Meta:
@@ -32,6 +33,17 @@ class PostSerializer(serializers.ModelSerializer):
             "id", "user", "is_verified",
             "created_at", "updated_at"
         )
+
+    def validate(self, attrs):
+        classroom = attrs.get('classroom')
+        post_level = attrs.get('post_level')
+
+        if not classroom and not post_level:
+            raise serializers.ValidationError({
+                "post_level": "Level is required when not posting in a classroom."
+            })
+            
+        return attrs
 
     def create(self, validated_data):
         request = self.context.get('request')
