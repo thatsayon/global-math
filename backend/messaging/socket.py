@@ -113,33 +113,35 @@ async def connect(sid, environ, auth):
 @sio.event
 async def send_message(sid, data):
     if not isinstance(data, dict):
-        await sio.emit("error", {"error": "Invalid payload"}, to=sid)
-        return
+        return {"status": "error", "message": "Invalid payload"}
 
     sender_id = connected_users.get(sid)
     if not sender_id:
-        await sio.emit("error", {"error": "Unauthorized"}, to=sid)
-        return
+        return {"status": "error", "message": "Unauthorized"}
 
     message_text = data.get("message")
     to_user = data.get("to_user")
 
     if not message_text or not to_user:
-        await sio.emit("error", {"error": "Message and target user are required"}, to=sid)
-        return
+        return {"status": "error", "message": "Message and target user are required"}
 
     # Save message in DB
     saved_message = await save_message_to_db(sender_id, to_user, message_text)
 
     if isinstance(saved_message, dict) and "error" in saved_message:
-        await sio.emit("error", {"error": saved_message["error"]}, to=sid)
-        return
+        return {"status": "error", "message": saved_message["error"]}
+
+    # Get sender details
+    sender_name = f"{saved_message.sender.first_name} {saved_message.sender.last_name}".strip() or saved_message.sender.username
+    sender_avatar = saved_message.sender.profile_pic.url if saved_message.sender.profile_pic else None
 
     # Prepare payload
     payload = {
         "id": str(saved_message.id),
         "conversation": str(saved_message.conversation.id),
         "sender": sender_id,
+        "sender_name": sender_name,
+        "sender_avatar": sender_avatar,
         "receiver": to_user,
         "message": saved_message.content,
         "timestamp": saved_message.created_at.isoformat()
@@ -150,60 +152,24 @@ async def send_message(sid, data):
     if recipient_sid:
         await sio.emit("receive_message", payload, to=recipient_sid)
 
-    # Confirm to sender
-    await sio.emit("message_sent", payload, to=sid)
-
     print(f"📨 Message saved and sent from {sender_id} to {to_user}")
+    
+    # Return acknowledgment
+    return {"status": "ok", "data": payload}
 
 @sio.event
-async def receive_message(sid, data):
+async def update_token(sid, data):
     if not isinstance(data, dict):
-        await sio.emit("error", {"error": "Invalid payload format"}, to=sid)
         return
-
-    sender_id = connected_users.get(sid)
-    if not sender_id:
-        await sio.emit("error", {"error": "Unauthorized"}, to=sid)
-        return
-
-    message = data.get("message")
-    to_user = data.get("to_user")
-
-    if not message:
-        await sio.emit("error", {"error": "Message content is required"}, to=sid)
-        return
-
-    if not to_user:
-        await sio.emit("error", {"error": "Target user is required"}, to=sid)
-        return
-
-    # Save to DB (placeholder)
-    saved_message = await save_message_to_db(sender_id, to_user, message)
-
-    if isinstance(saved_message, dict) and "error" in saved_message:
-        await sio.emit("error", {"error": saved_message["error"]}, to=sid)
-        return
-
-    # Find recipient session
-    recipient_sid = user_sid_map.get(to_user)
-
-    # Prepare payload
-    payload = {
-        "id": saved_message.id,
-        "sender": sender_id,
-        "receiver": to_user,
-        "message": message,
-        "timestamp": saved_message.timestamp.isoformat()
-    }
-
-    # Deliver message
-    if recipient_sid:
-        await sio.emit("receive_message", payload, to=recipient_sid)
-
-    # Acknowledge to sender
-    await sio.emit("message_sent", payload, to=sid)
-
-    print(f"Message from {sender_id} to {to_user}: {message}")
+    token = data.get("token")
+    if token:
+        token = token.replace("Bearer ", "")
+        user = await get_user_from_token(token)
+        if user:
+            user_id = str(user.id)
+            connected_users[sid] = user_id
+            user_sid_map[user_id] = sid
+            print(f"🔄 Token updated for SID={sid}, USER={user.username}")
 
 @sio.event
 async def disconnect(sid):
