@@ -4,6 +4,7 @@ from classroom.views import (
     UpdateClassroomView,
     ListJoinRequestsView,
     RespondJoinRequestView,
+    DeleteClassroomView,
 )
 
 from .views import (
@@ -28,6 +29,7 @@ urlpatterns = [
     path('my-classroom/', MyClassroomView.as_view(), name='My Classroom'),
     path('create-classroom/', CreateClassroomView.as_view(), name='Create Classroom'),
     path('update-classroom/<uuid:pk>/', UpdateClassroomView.as_view(), name='Update Classroom'),
+    path('delete-classroom/<uuid:pk>/', DeleteClassroomView.as_view(), name='Delete Classroom'),
     path('classroom-detail/', ClassroomDetailView.as_view(), name='Classroom Detail'),
     path('invite-student/', InviteStudentView.as_view(), name='Invite Student'),
     path('join-requests/', ListJoinRequestsView.as_view(), name='List Join Requests'),

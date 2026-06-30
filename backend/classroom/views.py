@@ -120,3 +120,9 @@ class RespondJoinRequestView(APIView):
             join_request.save(update_fields=["status"])
             return Response({"message": "Join request rejected."}, status=status.HTTP_200_OK)
 
+class DeleteClassroomView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return Classroom.objects.filter(creator=self.request.user)
+
