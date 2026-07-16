@@ -48,7 +48,6 @@ class PostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get('request')
         user = request.user
-        student = user.account.student
 
         is_first_post = not PostModel.objects.filter(user=user).exists()
 
@@ -74,6 +73,7 @@ class PostSerializer(serializers.ModelSerializer):
 
         if is_first_post:
             try:
+                student = user.account.student
                 award_badge_by_code(student, "first_step")
             except:
                 pass
