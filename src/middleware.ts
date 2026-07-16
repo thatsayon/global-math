@@ -10,6 +10,15 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+function getRedirectUrl(request: NextRequest, path: string) {
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") || (request.url.startsWith("https") ? "https" : "http");
+  if (host) {
+    return new URL(path, `${proto}://${host}`);
+  }
+  return new URL(path, request.url);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get("access")?.value;
@@ -17,7 +26,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. Root redirect: if logged in → go to dashboard
   if (pathname === "/" && accessToken && !isTokenExpired(accessToken)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(getRedirectUrl(request, "/dashboard"));
   }
 
   // 2. Protected routes
@@ -33,14 +42,14 @@ export async function middleware(request: NextRequest) {
 
     // Case B: No access token OR expired → try to refresh (if refresh exists)
     if (refreshToken) {
-      const refreshUrl = new URL("/api/generateToken", request.url);
+      const refreshUrl = getRedirectUrl(request, "/api/generateToken");
       refreshUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
 
       return NextResponse.redirect(refreshUrl);
     }
 
     // Case C: No refresh token → force logout
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(getRedirectUrl(request, "/"));
   }
 
   // All other routes → allow

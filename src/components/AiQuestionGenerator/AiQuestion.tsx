@@ -57,6 +57,9 @@ import {
 } from "@/store/slices/api/challengeApi";
 import { Textarea } from "../ui/textarea";
 
+import "katex/dist/katex.min.css";
+import Latex from "react-latex-next";
+
 export default function AiQuestion() {
   const [showDialog, setShowDialog] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<
@@ -402,10 +405,12 @@ export default function AiQuestion() {
                         <span>{question.number}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {question.question}
+                    <TableCell className="font-medium whitespace-pre-wrap min-w-[300px]">
+                      <Latex>{question.question}</Latex>
                     </TableCell>
-                    <TableCell>{question.answer}</TableCell>
+                    <TableCell className="whitespace-pre-wrap min-w-[200px]">
+                      <Latex>{question.answer}</Latex>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
