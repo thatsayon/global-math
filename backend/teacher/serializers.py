@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import models 
 from django.db import transaction
 
+from administration.models import MathLevels
 from classroom.models import (
     ClassroomMemberList, 
     ClassRoomChallenge,
@@ -16,6 +17,13 @@ User = get_user_model()
 
 class ProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ImageField(required=False, allow_null=True)
+    math_levels = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=MathLevels.objects.all(),
+        write_only=True,
+        required=False
+    )
+    math_levels_info = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -29,8 +37,19 @@ class ProfileSerializer(serializers.ModelSerializer):
             'gender',
             'language',
             'country',
+            'math_levels',
+            'math_levels_info',
         )
         read_only_fields = ('email',)
+
+    def get_math_levels_info(self, obj):
+        return [{"id": level.id, "name": level.name} for level in obj.math_levels.all()]
+
+    def update(self, instance, validated_data):
+        math_levels = validated_data.pop('math_levels', None)
+        if math_levels is not None:
+            instance.math_levels.set(math_levels)
+        return super().update(instance, validated_data)
 
 
 class MyClassroomSerializer(serializers.ModelSerializer):
