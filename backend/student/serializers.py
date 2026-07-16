@@ -91,6 +91,9 @@ class LatestPostSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     video = serializers.SerializerMethodField()
     post_level_name = serializers.SerializerMethodField()
+    likes = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
+    user_reaction = serializers.SerializerMethodField()
     
     class Meta:
         model = PostModel
@@ -104,7 +107,23 @@ class LatestPostSerializer(serializers.ModelSerializer):
             'is_verified',
             'created_at',
             'post_level_name',
+            'likes',
+            'comment_count',
+            'user_reaction',
         )
+
+    def get_likes(self, obj):
+        return obj.reactions.filter(reaction='like').count()
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
+
+    def get_user_reaction(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            reaction = obj.reactions.filter(user=request.user).first()
+            return reaction.reaction if reaction else None
+        return None
 
     def get_post_level_name(self, obj):
         if obj.post_level:
