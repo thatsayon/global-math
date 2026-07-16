@@ -157,6 +157,42 @@ async def send_message(sid, data):
     # Return acknowledgment
     return {"status": "ok", "data": payload}
 
+@sync_to_async
+def delete_message_from_db(message_id: str, sender_id: str):
+    try:
+        sender = User.objects.get(id=sender_id)
+        msg = Message.objects.get(id=message_id, sender=sender)
+        msg.delete()
+        return True
+    except (Message.DoesNotExist, User.DoesNotExist):
+        return False
+
+@sio.event
+async def delete_message(sid, data):
+    if not isinstance(data, dict):
+        return {"status": "error", "message": "Invalid payload"}
+
+    sender_id = connected_users.get(sid)
+    if not sender_id:
+        return {"status": "error", "message": "Unauthorized"}
+
+    message_id = data.get("message_id")
+    to_user = data.get("to_user")
+
+    if not message_id or not to_user:
+        return {"status": "error", "message": "message_id and to_user are required"}
+
+    deleted = await delete_message_from_db(message_id, sender_id)
+    if not deleted:
+        return {"status": "error", "message": "Message not found or unauthorized"}
+
+    recipient_sid = user_sid_map.get(to_user)
+    if recipient_sid:
+        await sio.emit("message_deleted", {"message_id": message_id}, to=recipient_sid)
+
+    print(f"🗑️ Message {message_id} deleted by {sender_id}")
+    return {"status": "ok", "message_id": message_id}
+
 @sio.event
 async def update_token(sid, data):
     if not isinstance(data, dict):
