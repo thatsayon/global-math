@@ -100,7 +100,7 @@ class DashboardView(APIView):
             if not attempt:
                 status = "new"
             elif attempt.completed:
-                status = "completed"
+                continue
             else:
                 status = "in_progress"
 
@@ -139,8 +139,14 @@ class ChallengeListView(APIView):
         student = get_object_or_404(StudentProfile, account=account)
         progress, _ = StudentProgress.objects.get_or_create(student=student)
 
+        completed_challenge_ids = ChallengeAttempt.objects.filter(
+            student=student,
+            completed=True
+        ).values_list('challenge_id', flat=True)
+
         queryset = (
             DailyChallenge.objects
+            .exclude(id__in=completed_challenge_ids)
             .select_related("subject")
             .order_by("-publishing_date")
         )
