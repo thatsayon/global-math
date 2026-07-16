@@ -43,7 +43,8 @@ class DashboardView(APIView):
             {
                 "name": p.student.account.user.get_full_name(),
                 "points": p.total_points,
-                "country": p.student.account.user.country
+                "country": p.student.account.user.country,
+                "profile_pic": p.student.account.user.profile_pic.url if p.student.account.user.profile_pic else None
             }
             for p in leaderboard_qs
         ]
