@@ -133,6 +133,7 @@ class PostAdminSerializer(serializers.ModelSerializer):
     author = PostAuthorSerializer(source="user", read_only=True)
     comment_count = serializers.SerializerMethodField()
     classroom_name = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
@@ -144,14 +145,47 @@ class PostAdminSerializer(serializers.ModelSerializer):
     def get_classroom_name(self, obj):
         return obj.classroom.name if obj.classroom else None
 
+    def get_created_at(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        diff = now - obj.created_at
+
+        if diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            minutes = int((diff.total_seconds() % 3600) // 60)
+            if hours > 0:
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif minutes > 0:
+                return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            else:
+                return "Just now"
+        return obj.created_at.strftime("%d %b %Y")
+
 class CommentAdminSerializer(serializers.ModelSerializer):
     author = PostAuthorSerializer(source="user", read_only=True)
     post_id = serializers.UUIDField(source="post.id", read_only=True)
     post_text = serializers.CharField(source="post.text", read_only=True)
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = CommentModel
         fields = ("id", "author", "text", "image", "post_id", "post_text", "created_at")
+
+    def get_created_at(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        diff = now - obj.created_at
+
+        if diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            minutes = int((diff.total_seconds() % 3600) // 60)
+            if hours > 0:
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif minutes > 0:
+                return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            else:
+                return "Just now"
+        return obj.created_at.strftime("%d %b %Y")
 
 class MathLevelsSerializer(serializers.ModelSerializer):
     class Meta:

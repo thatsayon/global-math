@@ -88,6 +88,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
     text = serializers.SerializerMethodField()
     post_level_name = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
@@ -137,6 +138,22 @@ class PostFeedSerializer(serializers.ModelSerializer):
     def get_comment_count(self, obj):
         return obj.comments.count()
 
+    def get_created_at(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        diff = now - obj.created_at
+
+        if diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            minutes = int((diff.total_seconds() % 3600) // 60)
+            if hours > 0:
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif minutes > 0:
+                return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            else:
+                return "Just now"
+        return obj.created_at.strftime("%d %b %Y")
+
 
 class CommentSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
@@ -145,6 +162,7 @@ class CommentSerializer(serializers.ModelSerializer):
     dislike_count = serializers.SerializerMethodField()
     user_reaction = serializers.SerializerMethodField()
     user_id = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -202,6 +220,22 @@ class CommentSerializer(serializers.ModelSerializer):
             reaction = obj.reactions.filter(user=user).first()
             return reaction.reaction if reaction else None
         return None
+
+    def get_created_at(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        diff = now - obj.created_at
+
+        if diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() // 3600)
+            minutes = int((diff.total_seconds() % 3600) // 60)
+            if hours > 0:
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif minutes > 0:
+                return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            else:
+                return "Just now"
+        return obj.created_at.strftime("%d %b %Y")
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
