@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +36,7 @@ import { LoadingState } from "../elements/Loading";
 
 const levelSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  level_type: z.enum(["general", "mep"]),
 });
 
 type LevelFormData = z.infer<typeof levelSchema>;
@@ -51,20 +53,36 @@ export default function LevelAdjustment() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const [activeTab, setActiveTab] = useState<"general" | "mep">("general");
+
   const addForm = useForm<LevelFormData>({
     resolver: zodResolver(levelSchema),
+    defaultValues: {
+      name: "",
+      level_type: "general",
+    },
   });
+
   const editForm = useForm<LevelFormData>({
     resolver: zodResolver(levelSchema),
   });
 
+  // Update addForm default value when tab changes
+  const handleTabChange = (value: string) => {
+    const tab = value as "general" | "mep";
+    setActiveTab(tab);
+    addForm.setValue("level_type", tab);
+  };
+
   const levels = levelsData?.results || [];
+  const generalLevels = levels.filter((l) => l.level_type === "general");
+  const mepLevels = levels.filter((l) => l.level_type === "mep");
 
   const onAddLevel = async (data: LevelFormData) => {
     try {
-      await createLevel({ name: data.name }).unwrap();
+      await createLevel(data).unwrap();
       toast.success("Level Added");
-      addForm.reset();
+      addForm.reset({ name: "", level_type: activeTab });
     } catch (error) {
       const err = error as { data: { name: string } };
 
@@ -76,7 +94,7 @@ export default function LevelAdjustment() {
 
   const openEdit = (level: (typeof levels)[0]) => {
     setEditingId(level.id);
-    editForm.reset({ name: level.name });
+    editForm.reset({ name: level.name, level_type: level.level_type });
     setIsEditDialogOpen(true);
   };
 
@@ -117,64 +135,82 @@ export default function LevelAdjustment() {
       </div>
     );
 
+  const renderTable = (levelData: typeof levels) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Slug</TableHead>
+          <TableHead className="text-right">Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {levelData.map((level) => (
+          <TableRow key={level.id}>
+            <TableCell>{level.name}</TableCell>
+            <TableCell className="font-mono text-sm">{level.slug}</TableCell>
+            <TableCell className="text-right">
+              <Button size="sm" variant="ghost" onClick={() => openEdit(level)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-2"
+                onClick={() => openDelete(level.id)}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+        {levelData.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+              No levels found
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-6">
       <div className="bg-white rounded-lg border p-6 space-y-6">
         <h2 className="text-2xl font-semibold">Level Adjustment</h2>
 
-        <div className="flex gap-4 items-end">
-          <div className="flex-1 space-y-2">
-            <Label>Name</Label>
-            <Input
-              {...addForm.register("name")}
-              placeholder="Enter level name"
-            />
-          </div>
-          <Button
-            onClick={addForm.handleSubmit(onAddLevel)}
-            disabled={creating}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add
-          </Button>
-        </div>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="general">General Math Levels</TabsTrigger>
+            <TabsTrigger value="mep">MEP Math Levels</TabsTrigger>
+          </TabsList>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {levels.map((level) => (
-              <TableRow key={level.id}>
-                <TableCell>{level.name}</TableCell>
-                <TableCell className="font-mono text-sm">
-                  {level.slug}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => openEdit(level)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 ml-2"
-                    onClick={() => openDelete(level.id)}
-                    disabled={deleting}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+          <div className="flex gap-4 items-end mb-6">
+            <div className="flex-1 space-y-2">
+              <Label>Name</Label>
+              <Input
+                {...addForm.register("name")}
+                placeholder={`Enter ${activeTab === "general" ? "General" : "MEP"} level name`}
+              />
+            </div>
+            <Button
+              onClick={addForm.handleSubmit(onAddLevel)}
+              disabled={creating}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add
+            </Button>
+          </div>
+
+          <TabsContent value="general">
+            {renderTable(generalLevels)}
+          </TabsContent>
+
+          <TabsContent value="mep">
+            {renderTable(mepLevels)}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -211,7 +247,10 @@ export default function LevelAdjustment() {
             <DialogTitle>Delete Level</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-gray-600">Are you sure you want to delete this level? This action cannot be undone.</p>
+            <p className="text-gray-600">
+              Are you sure you want to delete this level? This action cannot be
+              undone.
+            </p>
           </div>
           <DialogFooter>
             <Button

@@ -31,6 +31,7 @@ export interface MathLevel {
   id: string;
   name: string;
   slug: string;
+  level_type: "general" | "mep";
 }
 
 export interface MathLevelsResponse {
@@ -42,12 +43,14 @@ export interface MathLevelsResponse {
 
 export interface CreateLevelRequest {
   name: string;
+  level_type: "general" | "mep";
 }
 
 export interface CreateLevelResponse {
   id: string;
   name: string;
   slug: string;
+  level_type: "general" | "mep";
 }
 
 export type UpdateLevelRequest = CreateLevelRequest;
