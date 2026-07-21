@@ -5,6 +5,10 @@ import uuid
 
 User = get_user_model()
 
+class LevelType(models.TextChoices):
+    GENERAL = "general", "General Math Level"
+    MEP = "mep", "MEP Math Level"
+
 class MathLevels(models.Model):
     id = models.UUIDField(
         primary_key=True,
@@ -13,6 +17,12 @@ class MathLevels(models.Model):
     )
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True, blank=True, null=True)
+    level_type = models.CharField(
+        max_length=20,
+        choices=LevelType.choices,
+        default=LevelType.GENERAL
+    )
+
 
     def __str__(self):
         return self.name

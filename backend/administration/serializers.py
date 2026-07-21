@@ -156,7 +156,7 @@ class CommentAdminSerializer(serializers.ModelSerializer):
 class MathLevelsSerializer(serializers.ModelSerializer):
     class Meta:
         model = MathLevels
-        fields = ("id", "name", "slug")
+        fields = ("id", "name", "slug", "level_type")
 
 class AdminProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ImageField(required=False)
@@ -219,7 +219,8 @@ class LevelAdjustmentSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
-            "slug"
+            "slug",
+            "level_type"
         )
         read_only_fields = ("slug",)
 
