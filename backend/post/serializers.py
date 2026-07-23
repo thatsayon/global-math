@@ -168,7 +168,6 @@ class CommentSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
         write_only=False,
-        source='parent',
     )
     parent_id = serializers.SerializerMethodField()
 
