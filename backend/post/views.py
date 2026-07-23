@@ -306,7 +306,26 @@ class CommentView(APIView):
 
         serializer = CommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(user=request.user, post=post, language=request.user.language or 'en')
+
+        # Resolve parent comment from the request data (support multiple field names)
+        parent_id = (
+            request.data.get('parent')
+            or request.data.get('parent_comment')
+            or request.data.get('parent_id')
+        )
+        parent_comment = None
+        if parent_id:
+            try:
+                parent_comment = CommentModel.objects.get(id=parent_id, post=post)
+            except CommentModel.DoesNotExist:
+                pass  # If parent not found, save as top-level comment
+
+        comment = serializer.save(
+            user=request.user,
+            post=post,
+            language=request.user.language or 'en',
+            parent=parent_comment,
+        )
 
         from .tasks import translate_comment_task
         translate_comment_task.delay(str(comment.id))

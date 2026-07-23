@@ -163,7 +163,14 @@ class CommentSerializer(serializers.ModelSerializer):
     user_reaction = serializers.SerializerMethodField()
     user_id = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
-
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=CommentModel.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=False,
+        source='parent',
+    )
+    parent_id = serializers.SerializerMethodField()
 
     class Meta:
         model = CommentModel
@@ -179,6 +186,8 @@ class CommentSerializer(serializers.ModelSerializer):
             "dislike_count",
             "user_reaction",
             "user_id",
+            "parent",
+            "parent_id",
         )
         read_only_fields = (
             "id",
@@ -190,11 +199,17 @@ class CommentSerializer(serializers.ModelSerializer):
             "dislike_count",
             "user_reaction",
             "user_id",
+            "parent_id",
         )
 
     def get_user_id(self, obj):
         if obj.user:
             return str(obj.user.id)
+        return None
+
+    def get_parent_id(self, obj):
+        if obj.parent:
+            return str(obj.parent.id)
         return None
 
     def get_full_name(self, obj):

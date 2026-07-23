@@ -143,6 +143,14 @@ class CommentModel(models.Model):
         blank=True,
         related_name="comments"
     )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+        help_text="If set, this comment is a reply to the referenced comment"
+    )
     text = models.TextField(
         blank=True,
         null=True,
@@ -163,7 +171,7 @@ class CommentModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['created_at']  # Chronological order (oldest first) for correct threading
         verbose_name = "Comment"
         verbose_name_plural = "Comments"
 
