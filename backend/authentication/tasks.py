@@ -23,6 +23,7 @@ def send_password_reset_email_task(self, user_email, full_name, otp):
 
         email = EmailMultiAlternatives(subject, "", to=[user_email])
         email.attach_alternative(body, "text/html")
+        email.mixed_subtype = 'related'
 
         # Attach the logo inline
         logo_path = "/Users/thatsayon/Codes/mathos/app/assets/icons/app_title_icon_light.png"
