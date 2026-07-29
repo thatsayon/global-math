@@ -126,7 +126,8 @@ class OtherProfileView(APIView):
         # paginate posts
         user_levels = request.user.math_levels.values_list("id", flat=True)
         posts_qs = user.posts.filter(
-            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
+            classroom__isnull=True,
+            post_level_id__in=user_levels
         ).order_by("-created_at")
         paginator = LatestPostPagination()
         page = paginator.paginate_queryset(posts_qs, request)

@@ -26,13 +26,16 @@ class ProfileFeedView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        posts = PostModel.objects.filter(user=request.user).order_by('-created_at')
+        posts = PostModel.objects.filter(
+            user=request.user, 
+            classroom__isnull=True
+        ).order_by('-created_at')
 
         paginator = ProfileFeedPagination()
         paginated_posts = paginator.paginate_queryset(posts, request)
 
         serializer = PostFeedSerializer(
-            posts, 
+            paginated_posts, 
             many=True,
             context={'request': request}
         )
