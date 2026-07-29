@@ -23,6 +23,7 @@ class Classroom(models.Model):
     )
 
     name = models.CharField(max_length=255)
+    image = models.ImageField(upload_to="classrooms/images/", null=True, blank=True)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     room_code = models.CharField(max_length=20, unique=True, blank=True)
     members_count = models.PositiveIntegerField(default=0)

@@ -64,7 +64,8 @@ class MyClassroomSerializer(serializers.ModelSerializer):
             'room_code',
             'members_count',
             'is_public',
-            'last_activity'
+            'last_activity',
+            'image'
         )
 
 class ClassroomMemberSerializer(serializers.ModelSerializer):
@@ -95,7 +96,8 @@ class ClassroomDetailSerializer(serializers.ModelSerializer):
             'description',
             'room_code',
             'members_count',
-            'is_public'
+            'is_public',
+            'image'
         )
 
 # classroom related serializers

@@ -11,7 +11,8 @@ class CreateClassroomSerializer(serializers.ModelSerializer):
         fields = (
             'name',
             'description',
-            'is_public'
+            'is_public',
+            'image'
         )
 
 class ClassroomDetailSerializer(serializers.ModelSerializer):
@@ -24,7 +25,8 @@ class ClassroomDetailSerializer(serializers.ModelSerializer):
             "slug",
             "room_code",
             "members_count",
-            "is_public"
+            "is_public",
+            "image"
         )
 
 class JoinClassroomSerializer(serializers.ModelSerializer):
