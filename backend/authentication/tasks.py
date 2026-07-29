@@ -23,17 +23,6 @@ def send_password_reset_email_task(self, user_email, full_name, otp):
 
         email = EmailMultiAlternatives(subject, "", to=[user_email])
         email.attach_alternative(body, "text/html")
-        email.mixed_subtype = 'related'
-
-        # Attach the logo inline
-        logo_path = "/Users/thatsayon/Codes/mathos/app/assets/icons/app_title_icon_light.png"
-        if os.path.exists(logo_path):
-            with open(logo_path, "rb") as f:
-                logo_image = MIMEImage(f.read())
-                logo_image.add_header('Content-ID', '<logo>')
-                logo_image.add_header('Content-Disposition', 'inline', filename='app_title_icon_light.png')
-                email.attach(logo_image)
-
         email.send()
 
         logger.info(f"Password reset OTP email sent successfully to {user_email}")
