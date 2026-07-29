@@ -7,7 +7,7 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import { Trophy, CalendarIcon } from "lucide-react";
+import { Trophy, CalendarIcon, ArrowUp, ArrowDown, Plus } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -69,6 +69,10 @@ export default function AiQuestion() {
     new Set()
   );
   const [formData, setFormData] = useState<ChallengeFormData | null>(null);
+  
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [customAnswer, setCustomAnswer] = useState("");
 
   // RTK Query hooks
   const { data: subjects = [], isLoading: subjectsLoading } =
@@ -138,8 +142,8 @@ export default function AiQuestion() {
     try {
       const selectedQuestionsData = generatedQuestions
         .filter((q) => selectedQuestions.has(q.number))
-        .map((q) => ({
-          order: q.number,
+        .map((q, index) => ({
+          order: index + 1,
           question_text: q.question,
           answer: q.answer,
         }));
@@ -171,6 +175,51 @@ export default function AiQuestion() {
   const handleCloseDialog = () => {
     setShowDialog(false);
     setSelectedQuestions(new Set());
+    setShowAddCustom(false);
+    setCustomQuestion("");
+    setCustomAnswer("");
+  };
+
+  const moveQuestionUp = (index: number) => {
+    if (index === 0) return;
+    const newQuestions = [...generatedQuestions];
+    const temp = newQuestions[index];
+    newQuestions[index] = newQuestions[index - 1];
+    newQuestions[index - 1] = temp;
+    setGeneratedQuestions(newQuestions);
+  };
+
+  const moveQuestionDown = (index: number) => {
+    if (index === generatedQuestions.length - 1) return;
+    const newQuestions = [...generatedQuestions];
+    const temp = newQuestions[index];
+    newQuestions[index] = newQuestions[index + 1];
+    newQuestions[index + 1] = temp;
+    setGeneratedQuestions(newQuestions);
+  };
+
+  const handleAddCustomQuestion = () => {
+    if (!customQuestion.trim() || !customAnswer.trim()) {
+      toast.error("Both question and answer are required");
+      return;
+    }
+    const newNumber = generatedQuestions.length > 0 
+      ? Math.max(...generatedQuestions.map(q => q.number)) + 1 
+      : 1;
+    
+    const newQuestion: GeneratedQuestion = {
+      number: newNumber,
+      question: customQuestion,
+      answer: customAnswer,
+    };
+    
+    setGeneratedQuestions([...generatedQuestions, newQuestion]);
+    setSelectedQuestions(new Set([...selectedQuestions, newNumber]));
+    
+    setCustomQuestion("");
+    setCustomAnswer("");
+    setShowAddCustom(false);
+    toast.success("Custom question added");
   };
 
   return (
@@ -380,7 +429,7 @@ export default function AiQuestion() {
                     <div className="flex items-center gap-2">
                       <Checkbox
                         checked={
-                          selectedQuestions.size === generatedQuestions.length
+                          selectedQuestions.size === generatedQuestions.length && generatedQuestions.length > 0
                         }
                         onCheckedChange={handleSelectAll}
                       />
@@ -389,10 +438,11 @@ export default function AiQuestion() {
                   </TableHead>
                   <TableHead>Question</TableHead>
                   <TableHead>Answer</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {generatedQuestions.map((question) => (
+                {generatedQuestions.map((question, index) => (
                   <TableRow key={question.number}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -402,7 +452,7 @@ export default function AiQuestion() {
                             handleSelectQuestion(question.number)
                           }
                         />
-                        <span>{question.number}</span>
+                        <span>{index + 1}</span>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium whitespace-pre-wrap min-w-[300px]">
@@ -411,11 +461,66 @@ export default function AiQuestion() {
                     <TableCell className="whitespace-pre-wrap min-w-[200px]">
                       <Latex>{question.answer}</Latex>
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={index === 0}
+                          onClick={() => moveQuestionUp(index)}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={index === generatedQuestions.length - 1}
+                          onClick={() => moveQuestionDown(index)}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+
+          {showAddCustom ? (
+            <div className="p-4 border rounded-lg mt-4 bg-gray-50/50 space-y-4">
+              <h4 className="font-medium">Add Custom Question</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Question</Label>
+                  <Textarea
+                    placeholder="Enter question text (LaTeX supported)"
+                    value={customQuestion}
+                    onChange={(e) => setCustomQuestion(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Answer</Label>
+                  <Textarea
+                    placeholder="Enter answer text (LaTeX supported)"
+                    value={customAnswer}
+                    onChange={(e) => setCustomAnswer(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={() => setShowAddCustom(false)}>Cancel</Button>
+                  <Button onClick={handleAddCustomQuestion}>Add Question</Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex justify-center">
+              <Button variant="outline" onClick={() => setShowAddCustom(true)} className="w-full border-dashed">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Custom Question
+              </Button>
+            </div>
+          )}
 
           <DialogFooter className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
