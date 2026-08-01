@@ -375,7 +375,7 @@ class CommentView(APIView):
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
 
-        comments = post.comments.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).order_by('-created_at')
+        comments = post.comments.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).order_by('created_at')
         paginator = CommentPagination()
         result_page = paginator.paginate_queryset(comments, request)
         serializer = CommentSerializer(result_page, many=True, context={"request": request})
