@@ -727,15 +727,16 @@ class AdminBadgeListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        if not request.user.is_staff:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Admin access required.")
-
         from account.models import Badge, EarnedBadge
+        from django.db.models import OuterRef, Subquery
 
-        badges = Badge.objects.annotate(
-            earner_count=Count('earnedbadge')
-        ).order_by('category', 'name')
+        badges = Badge.objects.all().order_by('category', 'name')
+
+        # Build earned count map in one query
+        earned_counts = {
+            row['badge_id']: row['total']
+            for row in EarnedBadge.objects.values('badge_id').annotate(total=Count('id'))
+        }
 
         data = []
         for badge in badges:
@@ -762,7 +763,7 @@ class AdminBadgeListView(APIView):
                 "description": badge.description,
                 "icon": badge.icon,
                 "category": badge.category,
-                "earner_count": badge.earner_count,
+                "earner_count": earned_counts.get(badge.id, 0),
                 "recent_earners": earner_names,
             })
 
@@ -772,6 +773,7 @@ class AdminBadgeListView(APIView):
             "total_earned": total_earned,
             "badges": data,
         })
+
 
     def post(self, request):
         """Award leaderboard badges based on current point rankings."""

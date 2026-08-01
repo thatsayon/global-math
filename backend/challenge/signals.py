@@ -6,10 +6,10 @@ Triggers:
   - challenges_10      → 10 completed challenges
   - challenges_50      → 50 completed challenges
   - challenges_100     → 100 completed challenges
-  - perfect_score      → 100% score on any challenge (score == total questions)
+  - perfect_score      → got full marks on a challenge (score == challenge.points)
   - scholar            → student reaches level 10
   - grand_scholar      → student reaches level 25
-  - streak_7/10/30/100 → checked on challenge completion
+  - streak_7/10/30/100 → checked on every completion
 """
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -19,7 +19,7 @@ from .models import ChallengeAttempt
 
 @receiver(post_save, sender=ChallengeAttempt)
 def check_challenge_badges(sender, instance, created, **kwargs):
-    # Only trigger on newly completed challenges
+    # Only process when a challenge transitions to completed
     if not instance.completed:
         return
 
@@ -43,20 +43,19 @@ def check_challenge_badges(sender, instance, created, **kwargs):
         award_badge_by_code(student, 'challenges_100')
 
     # ---- Perfect score badge ----
-    # A challenge is "perfect" if the student got score equal to the number
-    # of questions in the challenge (each correct answer = 1 point assumed)
-    challenge = instance.challenge
-    total_questions = challenge.questions.count()
-    if total_questions > 0 and instance.score >= total_questions:
-        award_badge_by_code(student, 'perfect_score')
+    # A challenge is "perfect" when the student's score == the challenge's
+    # total possible points (the `points` field on DailyChallenge).
+    try:
+        max_points = instance.challenge.points
+        if max_points and max_points > 0 and instance.score >= max_points:
+            award_badge_by_code(student, 'perfect_score')
+    except Exception:
+        pass
 
     # ---- Streak badges ----
-    from challenge.models import ChallengeAttempt as CA
-    from django.db.models.functions import TruncDate
-    from django.db.models import Value
-
     challenge_dates = list(
-        CA.objects.filter(student=student, completed=True)
+        ChallengeAttempt.objects
+        .filter(student=student, completed=True)
         .values_list('created_at', flat=True)
     )
     challenge_dates = [dt.date() for dt in challenge_dates]
@@ -80,3 +79,4 @@ def check_challenge_badges(sender, instance, created, **kwargs):
             award_badge_by_code(student, 'grand_scholar')
     except Exception:
         pass
+
