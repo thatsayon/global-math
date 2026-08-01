@@ -133,7 +133,7 @@ class OtherProfileView(APIView):
         paginator = LatestPostPagination()
         page = paginator.paginate_queryset(posts_qs, request)
 
-        posts_data = LatestPostSerializer(page, many=True).data
+        posts_data = LatestPostSerializer(page, many=True, context={'request': request}).data
 
         # build paginated structure manually
         latest_post = {
