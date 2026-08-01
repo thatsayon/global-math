@@ -283,6 +283,27 @@ class PostLikeDislikeView(APIView):
             if reaction_type == 'like' and post.user and post.user != request.user:
                 adjust_points(post.user, upvote_points)
 
+        # --- Badge checks for post author (like milestones) ---
+        if reaction_type == 'like' and post.user:
+            post_author = post.user
+            if hasattr(post_author, 'account') and hasattr(post_author.account, 'student'):
+                author_student = post_author.account.student
+                total_likes = PostReaction.objects.filter(
+                    post__user=post_author,
+                    reaction='like'
+                ).count()
+                from student.utils import award_badge_by_code
+                if total_likes >= 10:
+                    award_badge_by_code(author_student, 'likes_10')
+                if total_likes >= 50:
+                    award_badge_by_code(author_student, 'likes_50')
+                if total_likes >= 100:
+                    award_badge_by_code(author_student, 'likes_100')
+                if total_likes >= 200:
+                    award_badge_by_code(author_student, 'likes_200')
+                if total_likes >= 500:
+                    award_badge_by_code(author_student, 'likes_500')
+
         return Response(
             {"message": message},
             status=status.HTTP_200_OK
@@ -329,6 +350,17 @@ class CommentView(APIView):
 
         from .tasks import translate_comment_task
         translate_comment_task.delay(str(comment.id))
+
+        # --- Badge checks for commenter ---
+        commenter = request.user
+        if hasattr(commenter, 'account') and hasattr(commenter.account, 'student'):
+            commenter_student = commenter.account.student
+            comment_count = CommentModel.objects.filter(user=commenter).count()
+            from student.utils import award_badge_by_code
+            if comment_count >= 50:
+                award_badge_by_code(commenter_student, 'top_commenter')
+            if comment_count >= 200:
+                award_badge_by_code(commenter_student, 'super_commenter')
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

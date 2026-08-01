@@ -9,6 +9,7 @@ from .views import (
     HelpSupportView,
     OtherProfileView,
     StudentDashboardView,
+    BadgeListView,
 )
 
 urlpatterns = [
@@ -24,4 +25,7 @@ urlpatterns = [
 
     path('profile/', include('student.profile.urls')),
     path('other-profile/<uuid:user_id>/', OtherProfileView.as_view(), name='Other User'),
+
+    # badge views
+    path('badges/', BadgeListView.as_view(), name='Badge List'),
 ]

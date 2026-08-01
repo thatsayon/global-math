@@ -713,3 +713,99 @@ class TopPartView(APIView):
         }
 
         return Response(data)
+
+
+class AdminBadgeListView(APIView):
+    """
+    GET /admin-api/badges/
+    Returns all badges with stats (how many students earned each, recent earners).
+
+    POST /admin-api/badges/award-leaderboard/
+    Awards leaderboard badges (top_1, top_3, top_10) based on current rankings.
+    Admin-only endpoint.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.is_staff:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin access required.")
+
+        from account.models import Badge, EarnedBadge
+
+        badges = Badge.objects.annotate(
+            earner_count=Count('earnedbadge')
+        ).order_by('category', 'name')
+
+        data = []
+        for badge in badges:
+            # Last 5 earners
+            recent_earners = (
+                EarnedBadge.objects.filter(badge=badge)
+                .select_related('student__account__user')
+                .order_by('-earned_at')[:5]
+            )
+            earner_names = []
+            for eb in recent_earners:
+                try:
+                    user = eb.student.account.user
+                    earner_names.append({
+                        "name": user.get_full_name() or user.username,
+                        "earned_at": eb.earned_at,
+                    })
+                except Exception:
+                    pass
+
+            data.append({
+                "code": badge.code,
+                "name": badge.name,
+                "description": badge.description,
+                "icon": badge.icon,
+                "category": badge.category,
+                "earner_count": badge.earner_count,
+                "recent_earners": earner_names,
+            })
+
+        total_earned = EarnedBadge.objects.count()
+        return Response({
+            "total_badges": len(data),
+            "total_earned": total_earned,
+            "badges": data,
+        })
+
+    def post(self, request):
+        """Award leaderboard badges based on current point rankings."""
+        if not request.user.is_staff:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Admin access required.")
+
+        from account.models import Badge, EarnedBadge, StudentProgress
+        from student.utils import award_badge_by_code
+
+        # Get top 10 students by total points
+        top_students = (
+            StudentProgress.objects
+            .select_related('student')
+            .order_by('-total_points')[:10]
+        )
+
+        awarded = []
+        for rank, sp in enumerate(top_students, start=1):
+            student = sp.student
+            if rank == 1:
+                if award_badge_by_code(student, 'leaderboard_top_1'):
+                    awarded.append({"rank": rank, "badge": "leaderboard_top_1"})
+                award_badge_by_code(student, 'leaderboard_top_3')
+                award_badge_by_code(student, 'leaderboard_top_10')
+            elif rank <= 3:
+                if award_badge_by_code(student, 'leaderboard_top_3'):
+                    awarded.append({"rank": rank, "badge": "leaderboard_top_3"})
+                award_badge_by_code(student, 'leaderboard_top_10')
+            else:
+                if award_badge_by_code(student, 'leaderboard_top_10'):
+                    awarded.append({"rank": rank, "badge": "leaderboard_top_10"})
+
+        return Response({
+            "message": f"Leaderboard badges awarded to {len(top_students)} students.",
+            "newly_awarded": awarded,
+        })

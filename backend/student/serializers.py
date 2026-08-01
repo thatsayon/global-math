@@ -171,10 +171,25 @@ class CalendarDaySerializer(serializers.Serializer):
 class EarnedBadgeSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="badge.name")
     icon = serializers.CharField(source="badge.icon")
+    code = serializers.CharField(source="badge.code")
+    description = serializers.CharField(source="badge.description")
+    category = serializers.CharField(source="badge.category")
 
     class Meta:
         model = EarnedBadge
-        fields = ("name", "icon", "earned_at")
+        fields = ("name", "icon", "code", "description", "category", "earned_at")
+
+
+class BadgeWithStatusSerializer(serializers.Serializer):
+    """Serializes a badge along with whether the given student has earned it."""
+    code = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    icon = serializers.CharField()
+    category = serializers.CharField()
+    earned = serializers.BooleanField()
+    earned_at = serializers.DateTimeField(allow_null=True)
+
 
 class StudentDashboardSerializer(serializers.Serializer):
     progress = StudentProgressSerializer()
@@ -182,6 +197,7 @@ class StudentDashboardSerializer(serializers.Serializer):
     longest_streak = serializers.IntegerField()
     calendar = CalendarDaySerializer(many=True)
     badges = EarnedBadgeSerializer(many=True)
+
 
 
 

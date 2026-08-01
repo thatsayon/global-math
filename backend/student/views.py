@@ -26,6 +26,7 @@ from .serializers import (
     OtherProfileSerializer,
     LatestPostSerializer,
     StudentDashboardSerializer,
+    BadgeWithStatusSerializer,
 )
 from .pagination import (
     LatestPostPagination,
@@ -371,3 +372,37 @@ class StudentDashboardView(APIView):
             "badges": student.earned_badges.select_related("badge")
         })
 
+
+class BadgeListView(APIView):
+    """
+    GET /student/badges/
+    Returns all badges with earned=true/false for the authenticated student.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from account.models import Badge, EarnedBadge
+
+        account = get_object_or_404(UserAccount, user=request.user)
+        student = get_object_or_404(StudentProfile, account=account)
+
+        all_badges = Badge.objects.all().order_by('category', 'name')
+        earned_map = {
+            eb.badge_id: eb.earned_at
+            for eb in EarnedBadge.objects.filter(student=student).select_related('badge')
+        }
+
+        data = []
+        for badge in all_badges:
+            data.append({
+                "code": badge.code,
+                "name": badge.name,
+                "description": badge.description,
+                "icon": badge.icon,
+                "category": badge.category,
+                "earned": badge.id in earned_map,
+                "earned_at": earned_map.get(badge.id),
+            })
+
+        serializer = BadgeWithStatusSerializer(data, many=True)
+        return Response(serializer.data)

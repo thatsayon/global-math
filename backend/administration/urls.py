@@ -39,6 +39,9 @@ from .views import (
     PostAdminDeleteView,
     CommentAdminListView,
     CommentAdminDeleteView,
+
+    # badge views
+    AdminBadgeListView,
 )
 
 urlpatterns = [
@@ -82,4 +85,8 @@ urlpatterns = [
     path('admin-posts/<uuid:id>/', PostAdminDeleteView.as_view(), name='Admin Post Delete'),
     path('admin-comments/', CommentAdminListView.as_view(), name='Admin Comment List'),
     path('admin-comments/<uuid:id>/', CommentAdminDeleteView.as_view(), name='Admin Comment Delete'),
+
+    # badge urls
+    path('badges/', AdminBadgeListView.as_view(), name='Admin Badge List'),
+    path('badges/award-leaderboard/', AdminBadgeListView.as_view(), name='Award Leaderboard Badges'),
 ]

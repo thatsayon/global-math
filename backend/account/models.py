@@ -90,10 +90,24 @@ class DailyActivity(models.Model):
 
 
 class Badge(models.Model):
+    CATEGORY_CHOICES = [
+        ('Streak', 'Streak'),
+        ('Engagement', 'Engagement'),
+        ('Academic', 'Academic'),
+        ('Social', 'Social'),
+        ('Challenge', 'Challenge'),
+        ('Special', 'Special'),
+    ]
+
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     description = models.TextField()
-    icon = models.CharField(max_length=50)  # frontend icon key
+    icon = models.CharField(max_length=50)  # emoji or frontend icon key
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='Social'
+    )
 
     def __str__(self):
         return self.name
