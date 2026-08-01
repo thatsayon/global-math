@@ -357,7 +357,7 @@ class StudentDashboardView(APIView):
             progress.BASE_POINTS * (progress.level + 1) ** 2
         )
 
-        return Response({
+        data = {
             "progress": {
                 "total_points": progress.total_points,
                 "level": progress.level,
@@ -370,7 +370,9 @@ class StudentDashboardView(APIView):
             "longest_streak": longest_streak,
             "calendar": calendar,
             "badges": student.earned_badges.select_related("badge")
-        })
+        }
+        serializer = StudentDashboardSerializer(data)
+        return Response(serializer.data)
 
 
 class BadgeListView(APIView):
