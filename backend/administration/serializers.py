@@ -3,6 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
+from core.utils import get_translated_level_name
 
 from post.models import PostModel, CommentModel
 
@@ -188,9 +189,16 @@ class CommentAdminSerializer(serializers.ModelSerializer):
         return obj.created_at.strftime("%d %b %Y")
 
 class MathLevelsSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    
     class Meta:
         model = MathLevels
         fields = ("id", "name", "slug", "level_type")
+
+    def get_name(self, obj):
+        level_name = obj.name
+        user_lang = self.context.get('request').user.language if self.context.get('request') and hasattr(self.context.get('request').user, 'language') else 'en'
+        return get_translated_level_name(level_name, user_lang)
 
 class AdminProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ImageField(required=False)

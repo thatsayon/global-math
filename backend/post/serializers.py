@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from utils.slang_detector import detect_slang
 
 from post.tasks import run_nudity_check, translate_post_task
-from core.utils import translate_text
+from core.utils import translate_text, get_translated_level_name
 
 from administration.models import MathLevels
 from student.utils import award_badge_by_code
@@ -112,7 +112,10 @@ class PostFeedSerializer(serializers.ModelSerializer):
 
     def get_post_level_name(self, obj):
         if obj.post_level:
-            return obj.post_level.name
+            level_name = obj.post_level.name
+            user_lang = self.context.get('request').user.language if self.context.get('request') and hasattr(self.context.get('request').user, 'language') else 'en'
+            return get_translated_level_name(level_name, user_lang)
+        return None
 
     def get_text(self, obj):
         user_lang = self.context['request'].user.language or 'en'

@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import check_password
 
 from post.models import PostModel
 from administration.models import MathLevels, SupportMessage
+from core.utils import get_translated_level_name
 from account.models import (
     EarnedBadge,
 )
@@ -127,7 +128,9 @@ class LatestPostSerializer(serializers.ModelSerializer):
 
     def get_post_level_name(self, obj):
         if obj.post_level:
-            return obj.post_level.name
+            level_name = obj.post_level.name
+            user_lang = self.context.get('request').user.language if self.context.get('request') and hasattr(self.context.get('request').user, 'language') else 'en'
+            return get_translated_level_name(level_name, user_lang)
         return None
 
     def get_image(self, obj):
