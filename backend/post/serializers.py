@@ -89,6 +89,7 @@ class PostFeedSerializer(serializers.ModelSerializer):
     post_level_name = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
+    user_level = serializers.SerializerMethodField()
 
     class Meta:
         model = PostModel
@@ -96,13 +97,19 @@ class PostFeedSerializer(serializers.ModelSerializer):
             "id", "user", "text", "image",
             "full_name", "profile_pic",
             "likes", "user_reaction", "post_level",
-            "post_level_name", "created_at", "comment_count"
+            "post_level_name", "created_at", "comment_count", "user_level"
         )
 
     def get_full_name(self, obj):
         if obj.user:
             return f"{obj.user.first_name} {obj.user.last_name}".strip()
         return None
+
+    def get_user_level(self, obj):
+        try:
+            return obj.user.account.student.progress.level
+        except Exception:
+            return 1
 
     def get_profile_pic(self, obj):
         if obj.user and obj.user.profile_pic:
