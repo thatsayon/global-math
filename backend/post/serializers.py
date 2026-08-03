@@ -35,8 +35,10 @@ class PostSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
-        classroom = attrs.get('classroom')
-        post_level = attrs.get('post_level')
+        is_update = self.instance is not None
+        
+        classroom = attrs.get('classroom', getattr(self.instance, 'classroom', None) if is_update else None)
+        post_level = attrs.get('post_level', getattr(self.instance, 'post_level', None) if is_update else None)
 
         if not classroom and not post_level:
             raise serializers.ValidationError({
@@ -78,6 +80,28 @@ class PostSerializer(serializers.ModelSerializer):
             except:
                 pass
         return post
+
+    def update(self, instance, validated_data):
+        text_changed = 'text' in validated_data and validated_data['text'] != instance.text
+        image_changed = 'image' in validated_data
+        video_changed = 'video' in validated_data
+
+        if 'text' in validated_data:
+            text = validated_data['text']
+            is_slang = detect_slang(text)
+            if is_slang:
+                raise serializers.ValidationError({"text": "Your post contains inappropriate language."})
+
+        instance = super().update(instance, validated_data)
+
+        if image_changed or video_changed:
+            run_nudity_check.delay(str(instance.id))
+        
+        if text_changed:
+            translate_post_task.delay(str(instance.id))
+
+        return instance
+
 
 class PostFeedSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()

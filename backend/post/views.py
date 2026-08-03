@@ -45,6 +45,14 @@ class PostDetailView(generics.RetrieveAPIView):
             Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
         )
 
+class PostUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PostSerializer
+    lookup_url_kwarg = 'post_id'
+
+    def get_queryset(self):
+        return PostModel.objects.filter(user=self.request.user)
+
 class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
