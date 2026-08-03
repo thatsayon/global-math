@@ -43,7 +43,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ('email',)
 
     def get_math_levels_info(self, obj):
-        return [{"id": level.id, "name": level.name} for level in obj.math_levels.all()]
+        return [{"id": level.id, "name": level.name, "level_type": level.level_type} for level in obj.math_levels.all()]
 
     def update(self, instance, validated_data):
         math_levels = validated_data.pop('math_levels', None)
