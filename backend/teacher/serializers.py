@@ -54,6 +54,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class MyClassroomSerializer(serializers.ModelSerializer):
     last_activity = serializers.DateTimeField(read_only=True)
+    pending_requests_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Classroom
@@ -65,8 +66,12 @@ class MyClassroomSerializer(serializers.ModelSerializer):
             'members_count',
             'is_public',
             'last_activity',
-            'image'
+            'image',
+            'pending_requests_count'
         )
+
+    def get_pending_requests_count(self, obj):
+        return obj.join_requests.filter(status="pending").count()
 
 class ClassroomMemberSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
