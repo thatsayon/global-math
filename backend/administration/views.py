@@ -249,7 +249,7 @@ class PostAdminListView(generics.ListAPIView):
     search_fields = ['text', 'user__first_name', 'user__last_name', 'user__username']
 
     def get_queryset(self):
-        return PostModel.objects.select_related('user', 'classroom').prefetch_related('comments').order_by('-created_at')
+        return PostModel.objects.exclude(user__isnull=True).select_related('user', 'classroom').prefetch_related('comments').order_by('-created_at')
 
 class PostAdminDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]

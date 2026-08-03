@@ -80,7 +80,7 @@ class MyClassroomView(generics.ListAPIView):
 
         total_classes = queryset.count()
         total_students = queryset.aggregate(total=Sum("members_count"))["total"] or 0
-        total_posts = PostModel.objects.filter(classroom__in=queryset).count()
+        total_posts = PostModel.objects.filter(classroom__in=queryset).exclude(user__isnull=True).count()
 
         return Response({
             "total_classes": total_classes,

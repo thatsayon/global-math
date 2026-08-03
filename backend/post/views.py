@@ -110,6 +110,7 @@ class PostFeedView(APIView):
             qs = (
                 PostModel.objects
                 .filter(classroom__isnull=True, post_level_id__in=user_levels)
+                .exclude(user__isnull=True)
                 .exclude(user=user)
                 .select_related("user", "post_level")
                 .annotate(

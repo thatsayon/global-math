@@ -20,7 +20,7 @@ class PostModel(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         blank=True,
         null=True,
         related_name="posts"
@@ -138,7 +138,7 @@ class CommentModel(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="comments"

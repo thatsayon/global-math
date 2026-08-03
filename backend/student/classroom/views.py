@@ -66,7 +66,7 @@ class ClassRoomFeedView(APIView):
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
 
-        posts = PostModel.objects.filter(classroom=class_id).exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users)
+        posts = PostModel.objects.filter(classroom=class_id).exclude(user__isnull=True).exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users)
 
         if not posts.exists():
             return Response([], status=status.HTTP_200_OK)
