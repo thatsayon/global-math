@@ -266,21 +266,21 @@ class PostLikeDislikeView(APIView):
             if reaction.reaction == reaction_type:
                 reaction.delete()
                 message = f"{reaction_type} removed"
-                if reaction_type == 'like' and post.user and post.user != request.user:
+                if reaction_type == 'like' and post.user and post.user.id != request.user.id:
                     adjust_points(post.user, -upvote_points)
             else:
                 old_reaction = reaction.reaction
                 reaction.reaction = reaction_type
                 reaction.save()
                 message = f"Changed reaction to {reaction_type}"
-                if post.user and post.user != request.user:
+                if post.user and post.user.id != request.user.id:
                     if old_reaction == 'dislike' and reaction_type == 'like':
                         adjust_points(post.user, upvote_points)
                     elif old_reaction == 'like' and reaction_type == 'dislike':
                         adjust_points(post.user, -upvote_points)
         else:
             message = f"{reaction_type} added"
-            if reaction_type == 'like' and post.user and post.user != request.user:
+            if reaction_type == 'like' and post.user and post.user.id != request.user.id:
                 adjust_points(post.user, upvote_points)
 
         # --- Badge checks for post author (like milestones) ---
@@ -412,14 +412,14 @@ class CommentReactionView(APIView):
             if existing_reaction.reaction == reaction_type:
                 existing_reaction.delete()
                 message = f"{reaction_type} removed"
-                if reaction_type == 'like' and comment.user and comment.user != request.user:
+                if reaction_type == 'like' and comment.user and comment.user.id != request.user.id:
                     adjust_points(comment.user, -upvote_points)
             else:
                 old_reaction = existing_reaction.reaction
                 existing_reaction.reaction = reaction_type
                 existing_reaction.save()
                 message = f"Changed to {reaction_type}"
-                if comment.user and comment.user != request.user:
+                if comment.user and comment.user.id != request.user.id:
                     if old_reaction == 'dislike' and reaction_type == 'like':
                         adjust_points(comment.user, upvote_points)
                     elif old_reaction == 'like' and reaction_type == 'dislike':
@@ -427,7 +427,7 @@ class CommentReactionView(APIView):
         else:
             CommentReaction.objects.create(comment=comment, user=user, reaction=reaction_type)
             message = f"{reaction_type} added"
-            if reaction_type == 'like' and comment.user and comment.user != request.user:
+            if reaction_type == 'like' and comment.user and comment.user.id != request.user.id:
                 adjust_points(comment.user, upvote_points)
 
         like_count = comment.reactions.filter(reaction="like").count()
