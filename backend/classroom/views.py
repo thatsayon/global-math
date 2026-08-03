@@ -126,3 +126,21 @@ class DeleteClassroomView(generics.DestroyAPIView):
     def get_queryset(self):
         return Classroom.objects.filter(creator=self.request.user)
 
+class RemoveStudentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, classroom_id, student_id):
+        try:
+            classroom = Classroom.objects.get(id=classroom_id, creator=request.user)
+        except Classroom.DoesNotExist:
+            return Response({"error": "Classroom not found or you are not the creator"}, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            member = ClassroomMemberList.objects.get(classroom=classroom, user_id=student_id)
+            member.delete()
+            # Update member count
+            classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
+            classroom.save(update_fields=['members_count'])
+            return Response({"message": "Student removed successfully"}, status=status.HTTP_200_OK)
+        except ClassroomMemberList.DoesNotExist:
+            return Response({"error": "Student is not a member of this classroom"}, status=status.HTTP_404_NOT_FOUND)
