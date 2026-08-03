@@ -136,11 +136,15 @@ class RemoveStudentView(APIView):
             return Response({"error": "Classroom not found or you are not the creator"}, status=status.HTTP_404_NOT_FOUND)
         
         try:
-            member = ClassroomMemberList.objects.get(classroom=classroom, user_id=student_id)
-            member.delete()
-            # Update member count
-            classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
-            classroom.save(update_fields=['members_count'])
-            return Response({"message": "Student removed successfully"}, status=status.HTTP_200_OK)
+            member = ClassroomMemberList.objects.get(classroom=classroom, id=student_id)
         except ClassroomMemberList.DoesNotExist:
-            return Response({"error": "Student is not a member of this classroom"}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                member = ClassroomMemberList.objects.get(classroom=classroom, user_id=student_id)
+            except ClassroomMemberList.DoesNotExist:
+                return Response({"error": "Student is not a member of this classroom"}, status=status.HTTP_404_NOT_FOUND)
+            
+        member.delete()
+        # Update member count
+        classroom.members_count = ClassroomMemberList.objects.filter(classroom=classroom).count()
+        classroom.save(update_fields=['members_count'])
+        return Response({"message": "Student removed successfully"}, status=status.HTTP_200_OK)
