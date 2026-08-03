@@ -121,6 +121,7 @@ class EarnedBadge(models.Model):
     )
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE)
     earned_at = models.DateTimeField(auto_now_add=True)
+    is_seen = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ("student", "badge")

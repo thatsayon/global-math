@@ -10,6 +10,7 @@ from .views import (
     OtherProfileView,
     StudentDashboardView,
     BadgeListView,
+    NewBadgeView,
 )
 
 urlpatterns = [
@@ -28,4 +29,5 @@ urlpatterns = [
 
     # badge views
     path('badges/', BadgeListView.as_view(), name='Badge List'),
+    path('new-badges/', NewBadgeView.as_view(), name='New Badges'),
 ]

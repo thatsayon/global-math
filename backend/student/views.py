@@ -408,3 +408,27 @@ class BadgeListView(APIView):
 
         serializer = BadgeWithStatusSerializer(data, many=True)
         return Response(serializer.data)
+
+class NewBadgeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from account.models import EarnedBadge
+        account = get_object_or_404(UserAccount, user=request.user)
+        student = get_object_or_404(StudentProfile, account=account)
+
+        new_badges = EarnedBadge.objects.filter(student=student, is_seen=False).select_related('badge')
+        
+        data = []
+        for eb in new_badges:
+            data.append({
+                "code": eb.badge.code,
+                "name": eb.badge.name,
+                "description": eb.badge.description,
+                "icon": eb.badge.icon,
+                "category": eb.badge.category,
+            })
+            eb.is_seen = True
+            eb.save(update_fields=['is_seen'])
+            
+        return Response(data)
