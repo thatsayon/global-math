@@ -17,6 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Collect static files (only run in production build)
-RUN python manage.py collectstatic --noinput
+RUN SECRET_KEY=dummy DB_NAME=dummy DB_USER=dummy DB_PASS=dummy DB_HOST=dummy DB_PORT=dummy python manage.py collectstatic --noinput
 
 CMD ["gunicorn", "core.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
