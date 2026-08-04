@@ -17,6 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Collect static files (only run in production build)
-# RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput
 
 CMD ["gunicorn", "core.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
