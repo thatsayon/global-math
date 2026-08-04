@@ -85,7 +85,7 @@ class PostDetailView(generics.RetrieveAPIView):
         blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
         return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).filter(
-            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels)
+            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels) | Q(user=user)
         )
 
 class PostUpdateView(generics.UpdateAPIView):
