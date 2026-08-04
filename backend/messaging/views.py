@@ -225,3 +225,25 @@ class ReportUserAPIView(APIView):
         
         serializer = ReportUserSerializer(report)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class PinConversationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        conversation_id = request.data.get("conversation_id")
+        if not conversation_id:
+            return Response({"detail": "conversation_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        participant = get_object_or_404(
+            ConversationParticipant,
+            user=request.user,
+            conversation_id=conversation_id
+        )
+        
+        participant.is_pinned = not participant.is_pinned
+        participant.save()
+        
+        return Response({
+            "detail": "Conversation pinned successfully." if participant.is_pinned else "Conversation unpinned successfully.",
+            "is_pinned": participant.is_pinned
+        }, status=status.HTTP_200_OK)

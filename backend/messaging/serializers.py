@@ -15,6 +15,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     other_user_avatar = serializers.SerializerMethodField()
     unread_count = serializers.IntegerField()
     is_blocked = serializers.SerializerMethodField()
+    is_pinned = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -28,7 +29,8 @@ class ConversationSerializer(serializers.ModelSerializer):
             'last_message_is_me',
             'last_message_time',
             'unread_count',
-            'is_blocked'
+            'is_blocked',
+            'is_pinned'
         ]
 
     def get_other_user_id(self, obj):
@@ -42,6 +44,12 @@ class ConversationSerializer(serializers.ModelSerializer):
             other_participant = obj.participants.exclude(user=user).select_related('user').first()
             obj._cached_other_user = other_participant.user if other_participant else None
         return obj._cached_other_user
+
+    def get_is_pinned(self, obj):
+        user = self.context['request'].user
+        # Find the participant record for this user
+        participant = obj.participants.filter(user=user).first()
+        return participant.is_pinned if participant else False
 
     def get_last_message_obj(self, obj):
         # cache the last message for reuse
