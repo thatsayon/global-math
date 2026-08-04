@@ -257,3 +257,21 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # JWT info
 JWT_SECRET = "secret_key"
+
+# Firebase Admin SDK Configuration
+import firebase_admin
+from firebase_admin import credentials
+import os
+
+FIREBASE_KEY_PATH = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', os.path.join(BASE_DIR, 'serviceAccountKey.json'))
+
+if not firebase_admin._apps:
+    try:
+        if os.path.exists(FIREBASE_KEY_PATH):
+            cred = credentials.Certificate(FIREBASE_KEY_PATH)
+            firebase_admin.initialize_app(cred)
+            print(f"Firebase Admin SDK initialized using {FIREBASE_KEY_PATH}")
+        else:
+            print(f"Warning: Firebase service account key not found at {FIREBASE_KEY_PATH}. Push notifications will not be sent.")
+    except Exception as e:
+        print(f"Error initializing Firebase: {e}")

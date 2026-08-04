@@ -273,6 +273,9 @@ class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    type = models.CharField(max_length=50, default='system')
+    post_id = models.CharField(max_length=255, blank=True, null=True)
+    comment_id = models.CharField(max_length=255, blank=True, null=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -283,3 +286,15 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.username}: {self.title}"
+
+class FCMDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fcm_devices')
+    token = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "FCM Device"
+        verbose_name_plural = "FCM Devices"
+
+    def __str__(self):
+        return f"FCM Token for {self.user.username}"

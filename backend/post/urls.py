@@ -13,6 +13,7 @@ from .views import (
     NotificationCountView,
     MarkNotificationsSeenView,
     NotificationListViewAPI,
+    FCMDeviceRegistrationView
 )
     
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     path('comment-delete/<uuid:comment_id>/', CommentDeleteView.as_view(), name='Comment Delete'),
     path('not-interested/<uuid:post_id>/', PostNotInterestedView.as_view(), name='Post Not Interested'),
     path('notifications/count/', NotificationCountView.as_view(), name='Notification Count'),
-    path('notifications/seen/', MarkNotificationsSeenView.as_view(), name='Notification Seen'),
-    path('notifications/list/', NotificationListViewAPI.as_view(), name='Notification List'),
+    path('notifications/seen/', MarkNotificationsSeenView.as_view(), name='notifications-seen'),
+    path('notifications/list/', NotificationListViewAPI.as_view(), name='notifications-list'),
+    path('notifications/fcm/register/', FCMDeviceRegistrationView.as_view(), name='fcm-register'),
 ]

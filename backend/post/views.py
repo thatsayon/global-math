@@ -27,8 +27,11 @@ from .models import (
     PostView,
     PostNotInterested,
     Notification,
+    FCMDevice,
 )
 from asgiref.sync import async_to_sync
+import firebase_admin
+from firebase_admin import messaging
 
 def emit_notification_to_socket(notif_instance):
     try:
@@ -46,6 +49,26 @@ def emit_notification_to_socket(notif_instance):
             async_to_sync(sio.emit)("new_notification", payload, to=recipient_sid)
     except Exception as e:
         print("Failed to emit notification:", e)
+
+def send_push_notification(user, title, body, data=None):
+    try:
+        devices = FCMDevice.objects.filter(user=user)
+        tokens = [device.token for device in devices]
+        if not tokens:
+            return
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            data=data or {},
+            tokens=tokens,
+        )
+        response = messaging.send_multicast(message)
+        print(f"Successfully sent {response.success_count} messages")
+    except Exception as e:
+        print("Failed to send push notification:", e)
+
 
 
 class PostDetailView(generics.RetrieveAPIView):
@@ -347,9 +370,17 @@ class PostLikeDislikeView(APIView):
                 notif = Notification.objects.create(
                     user=post.user,
                     title="New Like",
-                    description=f"{request.user.first_name or request.user.username} liked your post."
+                    description=f"{request.user.first_name or request.user.username} liked your post.",
+                    type="like",
+                    post_id=str(post.id)
                 )
                 emit_notification_to_socket(notif)
+                send_push_notification(
+                    user=post.user,
+                    title="New Like",
+                    body=f"{request.user.first_name or request.user.username} liked your post.",
+                    data={"type": "like", "post_id": str(post.id)}
+                )
 
         # --- Badge checks for post author (like milestones) ---
         if reaction_type == 'like' and post.user:
@@ -423,17 +454,35 @@ class CommentView(APIView):
             notif1 = Notification.objects.create(
                 user=post.user,
                 title="New Comment",
-                description=f"{request.user.first_name or request.user.username} commented on your post."
+                description=f"{request.user.first_name or request.user.username} commented on your post.",
+                type="comment",
+                post_id=str(post.id),
+                comment_id=str(comment.id)
             )
             emit_notification_to_socket(notif1)
+            send_push_notification(
+                user=post.user,
+                title="New Comment",
+                body=f"{request.user.first_name or request.user.username} commented on your post.",
+                data={"type": "comment", "post_id": str(post.id), "comment_id": str(comment.id)}
+            )
         
         if parent_comment and parent_comment.user and parent_comment.user.id != request.user.id:
             notif2 = Notification.objects.create(
                 user=parent_comment.user,
                 title="New Reply",
-                description=f"{request.user.first_name or request.user.username} replied to your comment."
+                description=f"{request.user.first_name or request.user.username} replied to your comment.",
+                type="reply",
+                post_id=str(post.id),
+                comment_id=str(comment.id)
             )
             emit_notification_to_socket(notif2)
+            send_push_notification(
+                user=parent_comment.user,
+                title="New Reply",
+                body=f"{request.user.first_name or request.user.username} replied to your comment.",
+                data={"type": "reply", "post_id": str(post.id), "comment_id": str(comment.id)}
+            )
 
         # --- Badge checks for commenter ---
         commenter = request.user
@@ -576,7 +625,23 @@ class NotificationListViewAPI(APIView):
                 "id": notif.id,
                 "title": notif.title,
                 "description": notif.description,
+                "type": notif.type,
+                "postId": notif.post_id,
+                "commentId": notif.comment_id,
                 "date_time": notif.created_at.isoformat(),
                 "isRead": notif.is_read,
             })
         return Response({"data": data}, status=status.HTTP_200_OK)
+
+
+class FCMDeviceRegistrationView(APIView):
+    """Register or update an FCM token for the user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get("token")
+        if not token:
+            return Response({"error": "Token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        device, created = FCMDevice.objects.get_or_create(user=request.user, token=token)
+        return Response({"msg": "Token registered successfully"}, status=status.HTTP_200_OK)
