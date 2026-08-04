@@ -28,6 +28,25 @@ from .models import (
     PostNotInterested,
     Notification,
 )
+from asgiref.sync import async_to_sync
+
+def emit_notification_to_socket(notif_instance):
+    try:
+        from messaging.socket import sio, user_sid_map
+        user_id = str(notif_instance.user.id)
+        recipient_sid = user_sid_map.get(user_id)
+        if recipient_sid:
+            payload = {
+                "id": notif_instance.id,
+                "title": notif_instance.title,
+                "description": notif_instance.description,
+                "date_time": notif_instance.created_at.isoformat(),
+                "isRead": notif_instance.is_read,
+            }
+            async_to_sync(sio.emit)("new_notification", payload, to=recipient_sid)
+    except Exception as e:
+        print("Failed to emit notification:", e)
+
 
 class PostDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -325,11 +344,12 @@ class PostLikeDislikeView(APIView):
             message = f"{reaction_type} added"
             if reaction_type == 'like' and post.user and post.user.id != request.user.id:
                 adjust_points(post.user, upvote_points)
-                Notification.objects.create(
+                notif = Notification.objects.create(
                     user=post.user,
                     title="New Like",
                     description=f"{request.user.first_name or request.user.username} liked your post."
                 )
+                emit_notification_to_socket(notif)
 
         # --- Badge checks for post author (like milestones) ---
         if reaction_type == 'like' and post.user:
@@ -400,18 +420,20 @@ class CommentView(APIView):
         translate_comment_task.delay(str(comment.id))
 
         if post.user and post.user.id != request.user.id and not parent_comment:
-            Notification.objects.create(
+            notif1 = Notification.objects.create(
                 user=post.user,
                 title="New Comment",
                 description=f"{request.user.first_name or request.user.username} commented on your post."
             )
+            emit_notification_to_socket(notif1)
         
         if parent_comment and parent_comment.user and parent_comment.user.id != request.user.id:
-            Notification.objects.create(
+            notif2 = Notification.objects.create(
                 user=parent_comment.user,
                 title="New Reply",
                 description=f"{request.user.first_name or request.user.username} replied to your comment."
             )
+            emit_notification_to_socket(notif2)
 
         # --- Badge checks for commenter ---
         commenter = request.user
