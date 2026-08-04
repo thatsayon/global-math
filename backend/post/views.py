@@ -26,6 +26,7 @@ from .models import (
     CommentReaction,
     PostView,
     PostNotInterested,
+    Notification,
 )
 
 class PostDetailView(generics.RetrieveAPIView):
@@ -324,6 +325,11 @@ class PostLikeDislikeView(APIView):
             message = f"{reaction_type} added"
             if reaction_type == 'like' and post.user and post.user.id != request.user.id:
                 adjust_points(post.user, upvote_points)
+                Notification.objects.create(
+                    user=post.user,
+                    title="New Like",
+                    description=f"{request.user.first_name or request.user.username} liked your post."
+                )
 
         # --- Badge checks for post author (like milestones) ---
         if reaction_type == 'like' and post.user:
@@ -392,6 +398,20 @@ class CommentView(APIView):
 
         from .tasks import translate_comment_task
         translate_comment_task.delay(str(comment.id))
+
+        if post.user and post.user.id != request.user.id and not parent_comment:
+            Notification.objects.create(
+                user=post.user,
+                title="New Comment",
+                description=f"{request.user.first_name or request.user.username} commented on your post."
+            )
+        
+        if parent_comment and parent_comment.user and parent_comment.user.id != request.user.id:
+            Notification.objects.create(
+                user=parent_comment.user,
+                title="New Reply",
+                description=f"{request.user.first_name or request.user.username} replied to your comment."
+            )
 
         # --- Badge checks for commenter ---
         commenter = request.user
@@ -505,49 +525,36 @@ class PostNotInterestedView(APIView):
 
 
 class NotificationCountView(APIView):
-    """Returns the count of new likes and comments on the user's posts since last seen."""
+    """Returns the count of unread notifications."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        last_seen = user.notification_seen_at
-
-        user_post_ids = PostModel.objects.filter(user=user).values_list("id", flat=True)
-
-        if last_seen:
-            new_likes = PostReaction.objects.filter(
-                post_id__in=user_post_ids,
-                reaction="like",
-                created_at__gt=last_seen,
-            ).exclude(user=user).count()
-
-            new_comments = CommentModel.objects.filter(
-                post_id__in=user_post_ids,
-                created_at__gt=last_seen,
-            ).exclude(user=user).count()
-        else:
-            # First time — count last 7 days
-            cutoff = timezone.now() - timedelta(days=7)
-            new_likes = PostReaction.objects.filter(
-                post_id__in=user_post_ids,
-                reaction="like",
-                created_at__gt=cutoff,
-            ).exclude(user=user).count()
-
-            new_comments = CommentModel.objects.filter(
-                post_id__in=user_post_ids,
-                created_at__gt=cutoff,
-            ).exclude(user=user).count()
-
-        total = new_likes + new_comments
-        return Response({"count": total, "likes": new_likes, "comments": new_comments})
+        count = Notification.objects.filter(user=request.user, is_read=False).count()
+        return Response({"count": count, "likes": 0, "comments": 0})
 
 
 class MarkNotificationsSeenView(APIView):
-    """Mark all notifications as seen (resets the red dot)."""
+    """Mark all notifications as seen."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        request.user.notification_seen_at = timezone.now()
-        request.user.save(update_fields=["notification_seen_at"])
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
         return Response({"msg": "Notifications marked as seen."}, status=status.HTTP_200_OK)
+
+
+class NotificationListViewAPI(APIView):
+    """Returns a list of notifications for the authenticated user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user)
+        data = []
+        for notif in notifications:
+            data.append({
+                "id": notif.id,
+                "title": notif.title,
+                "description": notif.description,
+                "date_time": notif.created_at.isoformat(),
+                "isRead": notif.is_read,
+            })
+        return Response({"data": data}, status=status.HTTP_200_OK)

@@ -12,6 +12,7 @@ from .views import (
     PostNotInterestedView,
     NotificationCountView,
     MarkNotificationsSeenView,
+    NotificationListViewAPI,
 )
     
 urlpatterns = [
@@ -27,4 +28,5 @@ urlpatterns = [
     path('not-interested/<uuid:post_id>/', PostNotInterestedView.as_view(), name='Post Not Interested'),
     path('notifications/count/', NotificationCountView.as_view(), name='Notification Count'),
     path('notifications/seen/', MarkNotificationsSeenView.as_view(), name='Notification Seen'),
+    path('notifications/list/', NotificationListViewAPI.as_view(), name='Notification List'),
 ]
