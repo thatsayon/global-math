@@ -98,6 +98,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.is_active = True  
         user.save()
+
+        # Always assign "Other" category
+        other_level = MathLevels.objects.filter(name__iexact='Other').first()
+        if other_level and other_level not in math_levels:
+            math_levels.append(other_level)
+
         user.math_levels.set(math_levels)
         return user
 

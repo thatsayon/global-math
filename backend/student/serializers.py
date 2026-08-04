@@ -36,11 +36,16 @@ class ProfileInformationSerializer(serializers.ModelSerializer):
         read_only_fields = ('id',)
 
     def get_math_levels_info(self, obj):
-        return [{"id": level.id, "name": level.name, "level_type": level.level_type} for level in obj.math_levels.all()]
+        return [{"id": level.id, "name": level.name, "level_type": level.level_type} 
+                for level in obj.math_levels.all() if level.name.lower() != 'other']
 
     def update(self, instance, validated_data):
         math_levels = validated_data.pop('math_levels', None)
         if math_levels is not None:
+            # Always ensure "Other" category is assigned
+            other_level = MathLevels.objects.filter(name__iexact='Other').first()
+            if other_level and other_level not in math_levels:
+                math_levels.append(other_level)
             instance.math_levels.set(math_levels)
         return super().update(instance, validated_data)
 
