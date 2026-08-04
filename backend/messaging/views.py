@@ -247,3 +247,20 @@ class PinConversationAPIView(APIView):
             "detail": "Conversation pinned successfully." if participant.is_pinned else "Conversation unpinned successfully.",
             "is_pinned": participant.is_pinned
         }, status=status.HTTP_200_OK)
+
+class DeleteConversationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        conversation_id = request.data.get("conversation_id")
+        if not conversation_id:
+            return Response({"detail": "conversation_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        deleted, _ = ConversationParticipant.objects.filter(
+            user=request.user,
+            conversation_id=conversation_id
+        ).delete()
+        
+        if deleted:
+            return Response({"detail": "Conversation deleted successfully."}, status=status.HTTP_200_OK)
+        return Response({"detail": "Conversation not found or already deleted."}, status=status.HTTP_404_NOT_FOUND)

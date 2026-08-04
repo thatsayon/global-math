@@ -6,6 +6,7 @@ from .views import (
     BlockUserAPIView,
     ReportUserAPIView,
     PinConversationAPIView,
+    DeleteConversationAPIView,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path('block/', BlockUserAPIView.as_view(), name='Block User'),
     path('report/', ReportUserAPIView.as_view(), name='Report User'),
     path('pin/', PinConversationAPIView.as_view(), name='Pin Conversation'),
+    path('delete/', DeleteConversationAPIView.as_view(), name='Delete Conversation'),
 
     # ai chat
     path('ai/', include('messaging.ai_chat.urls')),
