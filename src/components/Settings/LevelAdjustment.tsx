@@ -74,9 +74,10 @@ export default function LevelAdjustment() {
     addForm.setValue("level_type", tab);
   };
 
-  const levels = levelsData?.results || [];
-  const generalLevels = levels.filter((l) => l.level_type === "general");
-  const mepLevels = levels.filter((l) => l.level_type === "mep");
+  const levels = Array.isArray(levelsData) ? levelsData : (levelsData as any)?.results || [];
+  const generalLevels = levels.filter((l: any) => l.level_type === "general");
+  const mepLevels = levels.filter((l: any) => l.level_type === "mep");
+
 
   const onAddLevel = async (data: LevelFormData) => {
     try {

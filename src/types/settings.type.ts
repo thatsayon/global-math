@@ -34,12 +34,8 @@ export interface MathLevel {
   level_type: "general" | "mep";
 }
 
-export interface MathLevelsResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: MathLevel[];
-}
+export type MathLevelsResponse = MathLevel[];
+
 
 export interface CreateLevelRequest {
   name: string;
