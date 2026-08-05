@@ -50,16 +50,13 @@ def send_push_notification(user, title, body, data=None):
 
         # Rate-limiting logic
         # For likes/comments/replies: limit 1 push per user per post/action per 30 mins
-        # For messages: limit 1 push per receiver per sender per 5 mins
+        # Messages: no rate limit — every message must push
         if notif_type in ["like", "comment", "reply"]:
             post_id = data.get("post_id", "unknown_post")
             cache_key = f"push_ratelimit_{user.id}_{notif_type}_{post_id}"
             timeout = 1800  # 30 minutes
-        elif notif_type == "message":
-            sender_id = data.get("sender_id", "unknown_sender")
-            cache_key = f"push_ratelimit_{user.id}_{notif_type}_{sender_id}"
-            timeout = 300  # 5 minutes
         else:
+            # No rate limit for messages and other types
             cache_key = None
             timeout = 0
 
