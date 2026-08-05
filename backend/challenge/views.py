@@ -89,7 +89,7 @@ class DashboardView(APIView):
         # -----------------------------
         # Daily Challenges Status
         # -----------------------------
-        user_math_levels = account.math_levels.all()
+        user_math_levels = account.user.math_levels.all()
         challenges = DailyChallenge.objects.filter(subject__in=user_math_levels).select_related("subject").order_by("-publishing_date")
 
         challenge_data = []
@@ -146,7 +146,7 @@ class ChallengeListView(APIView):
             completed=True
         ).values_list('challenge_id', flat=True)
 
-        user_math_levels = account.math_levels.all()
+        user_math_levels = account.user.math_levels.all()
 
         queryset = (
             DailyChallenge.objects
