@@ -73,3 +73,6 @@ celeryd.pid
 # static files
 /static/
 /staticfiles/
+
+# JSON
+*.json
