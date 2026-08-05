@@ -104,6 +104,8 @@ class ProfileTopSerializer(serializers.ModelSerializer):
     badges = serializers.SerializerMethodField()
     accuracy = serializers.SerializerMethodField()
     profile_pic = serializers.SerializerMethodField()
+    posts_count = serializers.SerializerMethodField()
+    likes_received = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -118,6 +120,8 @@ class ProfileTopSerializer(serializers.ModelSerializer):
             "streak",
             "badges",
             "accuracy",
+            "posts_count",
+            "likes_received",
         )
 
     # ---------- media ----------
@@ -199,4 +203,14 @@ class ProfileTopSerializer(serializers.ModelSerializer):
         accuracy = progress.total_points / max_points
 
         return round(accuracy * 100, 2)
+
+    def get_posts_count(self, obj):
+        return obj.posts.filter(classroom__isnull=True).count()
+
+    def get_likes_received(self, obj):
+        from post.models import PostReaction
+        return PostReaction.objects.filter(
+            post__user=obj,
+            reaction='like'
+        ).count()
 
