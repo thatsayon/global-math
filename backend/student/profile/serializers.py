@@ -97,6 +97,7 @@ User = get_user_model()
 
 
 class ProfileTopSerializer(serializers.ModelSerializer):
+    level = serializers.SerializerMethodField()
     points = serializers.SerializerMethodField()
     streak = serializers.SerializerMethodField()
     badges = serializers.SerializerMethodField()
@@ -111,6 +112,7 @@ class ProfileTopSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "country",
+            "level",
             "points",
             "streak",
             "badges",
@@ -143,9 +145,28 @@ class ProfileTopSerializer(serializers.ModelSerializer):
         progress = self._get_progress(student) if student else None
         return progress.total_points if progress else 0
 
+    def get_level(self, obj):
+        student = self._get_student(obj)
+        progress = self._get_progress(student) if student else None
+        return progress.level if progress else 1
+
     def get_badges(self, obj):
         student = self._get_student(obj)
-        return student.earned_badges.count() if student else 0
+        if not student:
+            return []
+        
+        earned = student.earned_badges.select_related('badge')
+        return [
+            {
+                "code": eb.badge.code,
+                "name": eb.badge.name,
+                "description": eb.badge.description,
+                "icon": eb.badge.icon,
+                "category": eb.badge.category,
+                "earned_at": eb.earned_at.isoformat()
+            }
+            for eb in earned
+        ]
 
     def get_streak(self, obj):
         student = self._get_student(obj)

@@ -21,6 +21,9 @@ class ProfileInformationSerializer(serializers.ModelSerializer):
     )
     math_levels_info = serializers.SerializerMethodField(read_only=True)
     profile_pic = serializers.ImageField(required=False)
+    level = serializers.SerializerMethodField(read_only=True)
+    points = serializers.SerializerMethodField(read_only=True)
+    badges = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -32,12 +35,45 @@ class ProfileInformationSerializer(serializers.ModelSerializer):
             'country',
             'math_levels',      
             'math_levels_info', 
+            'level',
+            'points',
+            'badges',
         )
         read_only_fields = ('id',)
 
     def get_math_levels_info(self, obj):
         return [{"id": level.id, "name": level.name, "level_type": level.level_type} 
                 for level in obj.math_levels.all() if level.name.lower() != 'other']
+
+    def get_level(self, obj):
+        try:
+            return obj.account.student.progress.level
+        except AttributeError:
+            return 1
+
+    def get_points(self, obj):
+        try:
+            return obj.account.student.progress.total_points
+        except AttributeError:
+            return 0
+
+    def get_badges(self, obj):
+        try:
+            student = obj.account.student
+            earned = student.earned_badges.select_related('badge')
+            return [
+                {
+                    "code": eb.badge.code,
+                    "name": eb.badge.name,
+                    "description": eb.badge.description,
+                    "icon": eb.badge.icon,
+                    "category": eb.badge.category,
+                    "earned_at": eb.earned_at.isoformat()
+                }
+                for eb in earned
+            ]
+        except AttributeError:
+            return []
 
     def update(self, instance, validated_data):
         math_levels = validated_data.pop('math_levels', None)
@@ -148,6 +184,9 @@ class LatestPostSerializer(serializers.ModelSerializer):
 
 class OtherProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.SerializerMethodField()
+    level = serializers.SerializerMethodField()
+    points = serializers.SerializerMethodField()
+    badges = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -158,10 +197,43 @@ class OtherProfileSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "profile_pic",
+            "level",
+            "points",
+            "badges",
         )
 
     def get_profile_pic(self, obj):
         return obj.profile_pic.url if obj.profile_pic else None
+
+    def get_level(self, obj):
+        try:
+            return obj.account.student.progress.level
+        except AttributeError:
+            return 1
+
+    def get_points(self, obj):
+        try:
+            return obj.account.student.progress.total_points
+        except AttributeError:
+            return 0
+
+    def get_badges(self, obj):
+        try:
+            student = obj.account.student
+            earned = student.earned_badges.select_related('badge')
+            return [
+                {
+                    "code": eb.badge.code,
+                    "name": eb.badge.name,
+                    "description": eb.badge.description,
+                    "icon": eb.badge.icon,
+                    "category": eb.badge.category,
+                    "earned_at": eb.earned_at.isoformat()
+                }
+                for eb in earned
+            ]
+        except AttributeError:
+            return []
 
 
 # student activity serializers
