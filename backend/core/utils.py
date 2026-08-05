@@ -88,8 +88,22 @@ def send_push_notification(user, title, body, data=None):
             data=data,
             tokens=tokens,
         )
-        response = messaging.send_multicast(message)
+        # send_multicast was removed in firebase-admin v6+; use send_each_for_multicast
+        response = messaging.send_each_for_multicast(message)
         print(f"Successfully sent {response.success_count} messages")
+
+        # Clean up any invalid/expired tokens from the database
+        if response.failure_count > 0:
+            invalid_tokens = []
+            for idx, resp in enumerate(response.responses):
+                if not resp.success:
+                    error_code = resp.exception.code if resp.exception else None
+                    if error_code in ('registration-token-not-registered', 'invalid-registration-token'):
+                        invalid_tokens.append(tokens[idx])
+            if invalid_tokens:
+                FCMDevice.objects.filter(token__in=invalid_tokens).delete()
+                print(f"Removed {len(invalid_tokens)} invalid FCM tokens")
+
     except Exception as e:
         print("Failed to send push notification:", e)
 
