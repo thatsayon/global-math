@@ -330,6 +330,13 @@ class StudentDashboardView(APIView):
             for a in challenge_activity
         }
 
+        from account.models import DailyActivity
+        login_activity = DailyActivity.objects.filter(student=student).values("date", "points_earned")
+        for la in login_activity:
+            day = la["date"]
+            activity_map[day] = activity_map.get(day, 0) + (la["points_earned"] or 0)
+
+
         # -----------------------------
         # Calendar (last 30 days)
         # -----------------------------
