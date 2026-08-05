@@ -30,8 +30,7 @@ from .models import (
     FCMDevice,
 )
 from asgiref.sync import async_to_sync
-import firebase_admin
-from firebase_admin import messaging
+from core.utils import send_push_notification
 
 def emit_notification_to_socket(notif_instance):
     try:
@@ -50,24 +49,6 @@ def emit_notification_to_socket(notif_instance):
     except Exception as e:
         print("Failed to emit notification:", e)
 
-def send_push_notification(user, title, body, data=None):
-    try:
-        devices = FCMDevice.objects.filter(user=user)
-        tokens = [device.token for device in devices]
-        if not tokens:
-            return
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(
-                title=title,
-                body=body,
-            ),
-            data=data or {},
-            tokens=tokens,
-        )
-        response = messaging.send_multicast(message)
-        print(f"Successfully sent {response.success_count} messages")
-    except Exception as e:
-        print("Failed to send push notification:", e)
 
 
 

@@ -83,6 +83,22 @@ def save_message_to_db(sender_id: str, receiver_id: str, content: str):
         created_at=timezone.now()
     )
 
+    try:
+        from core.utils import send_push_notification
+        sender_name = f"{sender.first_name} {sender.last_name}".strip() or sender.username
+        send_push_notification(
+            user=receiver,
+            title=f"New message from {sender_name}",
+            body=content,
+            data={
+                "type": "message",
+                "sender_id": str(sender.id),
+                "message_id": str(message.id)
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error sending push notification for message: {e}")
+
     return message
 
 @sio.event
