@@ -21,7 +21,8 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'title', 'description')
     list_filter = ('type', 'is_read', 'created_at')
     readonly_fields = ('created_at',)
-    ordering = ('-created_at')
+    ordering = ('-created_at',)
+
 
 admin.site.register(PostModel)
 admin.site.register(PostTranslation)
