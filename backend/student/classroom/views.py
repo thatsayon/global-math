@@ -31,6 +31,7 @@ from .serializers import (
     ClassRoomListSerializer,
     ClassRoomChallengeSerializer,
     LeaderboardUserSerializer,
+    StudentSentRequestsSerializer
 )
 from .models import (
     ChallengeAttend,
@@ -626,3 +627,11 @@ class LeaveClassroomView(APIView):
             {"message": "Successfully left the classroom."},
             status=status.HTTP_200_OK
         )
+
+class SentJoinRequestsView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = StudentSentRequestsSerializer
+
+    def get_queryset(self):
+        # Fetch pending requests by the authenticated user
+        return JoinRequest.objects.filter(user=self.request.user, status="pending").order_by("-created_at")

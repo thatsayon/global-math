@@ -9,7 +9,8 @@ from .views import (
     JoinClassroomView,
     JoinClassroomWithCode,
     ClassroomLeaderboardView,
-    LeaveClassroomView
+    LeaveClassroomView,
+    SentJoinRequestsView
 )
 
 urlpatterns = [
@@ -23,4 +24,5 @@ urlpatterns = [
     path('join-with-code/', JoinClassroomWithCode.as_view(), name='Join Classroom'),
     path('leave/', LeaveClassroomView.as_view(), name='Leave Classroom'),
     path('leaderboard/<uuid:classroom_id>/', ClassroomLeaderboardView.as_view(), name='Leaderboard'),
+    path('sent-requests/', SentJoinRequestsView.as_view(), name='Sent Join Requests'),
 ]

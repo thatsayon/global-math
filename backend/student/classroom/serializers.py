@@ -3,6 +3,7 @@ from rest_framework import serializers
 from classroom.models import (
     Classroom,
     ClassRoomChallenge,
+    JoinRequest
 )
 from post.models import PostModel
 
@@ -41,3 +42,16 @@ class LeaderboardUserSerializer(serializers.Serializer):
     user_id = serializers.UUIDField()
     name = serializers.CharField()
     points = serializers.IntegerField()
+
+class StudentSentRequestsSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source='classroom.name', read_only=True)
+    classroom_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JoinRequest
+        fields = ["id", "classroom", "classroom_name", "classroom_image", "status", "created_at"]
+
+    def get_classroom_image(self, obj):
+        if obj.classroom.image:
+            return obj.classroom.image.url
+        return None
