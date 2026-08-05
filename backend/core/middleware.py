@@ -2,6 +2,7 @@ import datetime
 from django.utils import timezone
 from django.core.cache import cache
 from account.models import DailyActivity
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class DailyActivityMiddleware:
     """
@@ -12,9 +13,20 @@ class DailyActivityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.user.is_authenticated and hasattr(request.user, 'account'):
+        user = request.user
+
+        if not user.is_authenticated:
             try:
-                student = request.user.account.student
+                jwt_auth = JWTAuthentication()
+                auth_result = jwt_auth.authenticate(request)
+                if auth_result:
+                    user, token = auth_result
+            except Exception:
+                pass
+
+        if user and user.is_authenticated and hasattr(user, 'account'):
+            try:
+                student = user.account.student
                 today = timezone.now().date()
                 cache_key = f"daily_activity_{student.id}_{today.isoformat()}"
                 
