@@ -92,6 +92,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from datetime import timedelta
+from student.utils import calculate_streaks
 
 User = get_user_model()
 
@@ -173,23 +174,12 @@ class ProfileTopSerializer(serializers.ModelSerializer):
         if not student:
             return 0
 
-        dates = student.daily_activities.values_list("date", flat=True)
+        dates = list(student.daily_activities.values_list("date", flat=True))
         if not dates:
             return 0
 
-        dates = sorted(set(dates), reverse=True)
-
-        streak = 0
-        prev = None
-
-        for d in dates:
-            if prev is None or prev == d + timedelta(days=1):
-                streak += 1
-            else:
-                break
-            prev = d
-
-        return streak
+        current_streak, _ = calculate_streaks(dates)
+        return current_streak
 
     def get_accuracy(self, obj):
         """
