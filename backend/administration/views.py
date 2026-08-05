@@ -229,6 +229,8 @@ class LevelAdjustmentView(generics.ListCreateAPIView):
     serializer_class = LevelAdjustmentSerializer
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
     queryset = MathLevels.objects.all()
+    pagination_class = None
+
 
 class LevelAdjustmentUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = LevelAdjustmentSerializer
