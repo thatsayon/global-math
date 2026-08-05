@@ -645,3 +645,22 @@ class FCMDeviceRegistrationView(APIView):
 
         device, created = FCMDevice.objects.get_or_create(user=request.user, token=token)
         return Response({"msg": "Token registered successfully"}, status=status.HTTP_200_OK)
+from django.views.generic import TemplateView
+from django.shortcuts import get_object_or_404
+
+class PostShareRedirectView(TemplateView):
+    template_name = "post_share.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        post_id = self.kwargs.get('post_id')
+        post = get_object_or_404(PostModel, id=post_id)
+        
+        # We can extract title/description from the post object for Open Graph tags
+        context['post_id'] = post_id
+        context['post_title'] = "Post on Coyoote"
+        
+        # Truncate content for meta description
+        plain_text = post.text_content
+        context['post_description'] = plain_text[:200] + "..." if len(plain_text) > 200 else plain_text
+        return context

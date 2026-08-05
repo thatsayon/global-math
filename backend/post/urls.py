@@ -13,13 +13,15 @@ from .views import (
     NotificationCountView,
     MarkNotificationsSeenView,
     NotificationListViewAPI,
-    FCMDeviceRegistrationView
+    FCMDeviceRegistrationView,
+    PostShareRedirectView
 )
     
 urlpatterns = [
     path('create/', PostCreateView.as_view(), name='Post'),
     path('update/<uuid:post_id>/', PostUpdateView.as_view(), name='Post Update'),
     path('feed/', PostFeedView.as_view(), name='Post List'),
+    path('feed/<uuid:post_id>/', PostShareRedirectView.as_view(), name='post-share-redirect'),
     path('detail/<uuid:post_id>/', PostDetailView.as_view(), name='Post Detail'),
     path('delete/<uuid:post_id>/', PostDeleteView.as_view(), name='Post Delete'),
     path('react/<post_id>/', PostLikeDislikeView.as_view(), name='React'),
