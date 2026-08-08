@@ -178,7 +178,7 @@ class UnbanUserView(AdminBaseView, APIView):
         )
 
 class MathLevelsListView(generics.ListAPIView):
-    queryset = MathLevels.objects.all().order_by("name")  
+    queryset = MathLevels.objects.all()
     serializer_class = MathLevelsSerializer
     permission_classes = [permissions.AllowAny]  
     pagination_class = None
