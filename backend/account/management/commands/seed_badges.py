@@ -81,7 +81,7 @@ BADGES = [
         "code": "leaderboard_top_10",
         "name": "Top 10 Climber",
         "description": "Achieved a spot in the top 10 on the leaderboard.",
-        "icon": "🥈",
+        "icon": "🏅",
         "category": "Academic",
     },
     {
