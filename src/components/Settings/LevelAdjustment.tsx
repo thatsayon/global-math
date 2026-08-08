@@ -136,7 +136,7 @@ export default function LevelAdjustment() {
       </div>
     );
 
-  const renderTable = (levelData: typeof levels) => (
+  const renderTable = (levelData: any[]) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -146,7 +146,7 @@ export default function LevelAdjustment() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {levelData.map((level) => (
+        {levelData.map((level: any) => (
           <TableRow key={level.id}>
             <TableCell>{level.name}</TableCell>
             <TableCell className="font-mono text-sm">{level.slug}</TableCell>
