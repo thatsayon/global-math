@@ -586,10 +586,15 @@ class NotificationCountView(APIView):
 
 
 class MarkNotificationsSeenView(APIView):
-    """Mark all notifications as seen."""
+    """Mark all notifications or a single notification as seen."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        notification_id = request.data.get('notification_id')
+        if notification_id:
+            Notification.objects.filter(user=request.user, id=notification_id, is_read=False).update(is_read=True)
+            return Response({"msg": f"Notification {notification_id} marked as seen."}, status=status.HTTP_200_OK)
+
         Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
         return Response({"msg": "Notifications marked as seen."}, status=status.HTTP_200_OK)
 
