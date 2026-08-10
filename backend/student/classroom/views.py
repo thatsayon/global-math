@@ -370,7 +370,7 @@ class BrowserClassroomView(generics.ListAPIView):
         search = self.request.query_params.get("search", "").strip()
 
         qs = (
-            Classroom.objects
+            Classroom.objects.filter(is_public=True)
             .annotate(
                 post_count=Count("posts", distinct=True),
                 member_count=Count("members", distinct=True),
