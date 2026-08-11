@@ -3,6 +3,7 @@ from core.utils import translate_text
 from administration.models import DailyChallenge, DailyChallengeTranslation, ChallengeQuestionTranslation
 
 import logging
+import time
 logger = logging.getLogger(__name__)
 
 @shared_task
@@ -18,7 +19,9 @@ def translate_challenge_task(challenge_id):
                 
             # Translate Challenge details
             translated_name = translate_text(challenge.name, target_lang=lang, source_lang=source_lang)
+            time.sleep(0.5)
             translated_desc = translate_text(challenge.description, target_lang=lang, source_lang=source_lang)
+            time.sleep(0.5)
             
             DailyChallengeTranslation.objects.update_or_create(
                 challenge=challenge,
@@ -32,7 +35,9 @@ def translate_challenge_task(challenge_id):
             # Translate Challenge questions
             for question in challenge.questions.all():
                 translated_q_text = translate_text(question.question_text, target_lang=lang, source_lang=source_lang)
+                time.sleep(0.5)
                 translated_answer = translate_text(question.answer, target_lang=lang, source_lang=source_lang)
+                time.sleep(0.5)
                 
                 ChallengeQuestionTranslation.objects.update_or_create(
                     question=question,
