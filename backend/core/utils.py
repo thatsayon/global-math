@@ -123,3 +123,59 @@ def send_push_notification(user, title, body, data=None):
     except Exception as e:
         print("Failed to send push notification:", e)
 
+
+def translate_texts_batch(texts, target_lang, source_lang='en'):
+    if target_lang == source_lang:
+        return texts
+
+    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$)', re.DOTALL)
+    
+    texts_to_translate = []
+    all_math_blocks = []
+    
+    for text in texts:
+        if not text:
+            texts_to_translate.append(text)
+            all_math_blocks.append([])
+            continue
+            
+        math_blocks = []
+        def replacer(match):
+            math_blocks.append(match.group(0))
+            return f" MTHBLK{len(math_blocks)-1} "
+            
+        text_to_translate = math_pattern.sub(replacer, text)
+        texts_to_translate.append(text_to_translate)
+        all_math_blocks.append(math_blocks)
+
+    payload = {
+        "q": texts_to_translate,
+        "source": source_lang,
+        "target": target_lang,
+        "format": "text"
+    }
+
+    try:
+        response = requests.post(LIBRETRANSLATE_URL, json=payload, timeout=20)
+        response.raise_for_status()
+        translated_texts = response.json().get('translatedText', texts_to_translate)
+        
+        if not isinstance(translated_texts, list):
+            return texts
+            
+        final_translated = []
+        for i, translated_text in enumerate(translated_texts):
+            if not translated_text:
+                final_translated.append(translated_text)
+                continue
+                
+            math_blocks = all_math_blocks[i]
+            for j, block in enumerate(math_blocks):
+                placeholder_pattern = re.compile(r'mthblk\s*' + str(j), re.IGNORECASE)
+                translated_text = placeholder_pattern.sub(lambda m: block, translated_text)
+            final_translated.append(translated_text)
+            
+        return final_translated
+    except Exception as e:
+        print("Batch translation error:", e)
+        return texts

@@ -137,7 +137,7 @@ class DailyChallenge(models.Model):
 class DailyChallengeTranslation(models.Model):
     challenge = models.ForeignKey(DailyChallenge, related_name='translations', on_delete=models.CASCADE)
     language = models.CharField(max_length=10)
-    translated_name = models.CharField(max_length=255)
+    translated_name = models.TextField()
     translated_description = models.TextField()
 
     class Meta:
@@ -179,7 +179,7 @@ class ChallengeQuestionTranslation(models.Model):
     question = models.ForeignKey(ChallengeQuestion, related_name='translations', on_delete=models.CASCADE)
     language = models.CharField(max_length=10)
     translated_question_text = models.TextField()
-    translated_answer = models.CharField(max_length=255)
+    translated_answer = models.TextField()
 
     class Meta:
         unique_together = ('question', 'language')

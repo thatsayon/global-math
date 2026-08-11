@@ -1,5 +1,5 @@
 from celery import shared_task
-from core.utils import translate_text
+from core.utils import translate_text, translate_texts_batch
 from administration.models import DailyChallenge, DailyChallengeTranslation, ChallengeQuestionTranslation
 
 import logging
@@ -17,11 +17,17 @@ def translate_challenge_task(challenge_id):
             if lang == source_lang:
                 continue
                 
-            # Translate Challenge details
-            translated_name = translate_text(challenge.name, target_lang=lang, source_lang=source_lang)
-            time.sleep(0.5)
-            translated_desc = translate_text(challenge.description, target_lang=lang, source_lang=source_lang)
-            time.sleep(0.5)
+            # Gather all texts to translate
+            questions = list(challenge.questions.all())
+            texts_to_translate = [challenge.name, challenge.description]
+            for q in questions:
+                texts_to_translate.append(q.question_text)
+                texts_to_translate.append(q.answer)
+                
+            translated_texts = translate_texts_batch(texts_to_translate, target_lang=lang, source_lang=source_lang)
+            
+            translated_name = translated_texts[0]
+            translated_desc = translated_texts[1]
             
             DailyChallengeTranslation.objects.update_or_create(
                 challenge=challenge,
@@ -33,14 +39,14 @@ def translate_challenge_task(challenge_id):
             )
             
             # Translate Challenge questions
-            for question in challenge.questions.all():
-                translated_q_text = translate_text(question.question_text, target_lang=lang, source_lang=source_lang)
-                time.sleep(0.5)
-                translated_answer = translate_text(question.answer, target_lang=lang, source_lang=source_lang)
-                time.sleep(0.5)
+            offset = 2
+            for q in questions:
+                translated_q_text = translated_texts[offset]
+                translated_answer = translated_texts[offset+1]
+                offset += 2
                 
                 ChallengeQuestionTranslation.objects.update_or_create(
-                    question=question,
+                    question=q,
                     language=lang,
                     defaults={
                         'translated_question_text': translated_q_text,
