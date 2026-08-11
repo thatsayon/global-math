@@ -106,9 +106,11 @@ class DashboardView(APIView):
             else:
                 status = "in_progress"
 
+            user_lang = getattr(request.user, 'language', 'en')
+
             challenge_data.append({
                 "id": str(c.id),
-                "name": c.name,
+                "name": c.get_translated_name(user_lang),
                 "subject": c.subject.name,
                 "grade": c.grade,
                 "points": c.points,
@@ -167,10 +169,12 @@ class ChallengeListView(APIView):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
 
+        user_lang = getattr(request.user, 'language', 'en')
+
         results = [
             {
                 "id": str(c.id),
-                "name": c.name,
+                "name": c.get_translated_name(user_lang),
                 "subject": c.subject.name,
                 "grade": c.grade,
                 "points": c.points,
@@ -491,11 +495,13 @@ class NextChallengeQuestionView(APIView):
                 status=status.HTTP_200_OK
             )
 
+        user_lang = getattr(request.user, 'language', 'en')
+
         return Response(
             {
                 "question_id": str(question.id),
                 "order": question.order,
-                "question_text": question.question_text,
+                "question_text": question.get_translated_question_text(user_lang),
             },
             status=status.HTTP_200_OK
         )
@@ -592,11 +598,13 @@ class SubmitSolutionView(APIView):
                 file_path, solution_url = save_temp_file(solution_image)
                 temp_files.append(file_path)
 
+            user_lang = getattr(request.user, 'language', 'en')
+
             # -----------------------------
             # AI evaluation
             # -----------------------------
             ai_result = check_solution_with_ai(
-                problem_text=question.question_text,
+                problem_text=question.get_translated_question_text(user_lang),
                 solution_text=solution_text,
                 solution_url=solution_url,
             )
@@ -660,7 +668,7 @@ class SubmitSolutionView(APIView):
                         "next_question": {
                             "question_id": str(next_question.id),
                             "order": next_question.order,
-                            "question_text": next_question.question_text,
+                            "question_text": next_question.get_translated_question_text(user_lang),
                         },
                         "progress": {
                             "challenge_score": attempt.score,
@@ -688,7 +696,7 @@ class SubmitSolutionView(APIView):
                     "status": "completed",
                     "challenge": {
                         "id": str(challenge.id),
-                        "name": challenge.name,
+                        "name": challenge.get_translated_name(user_lang),
                         "total_questions": total_questions,
                         "correct_answers": correct_answers,
                         "points_earned": attempt.score,

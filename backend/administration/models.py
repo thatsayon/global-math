@@ -122,6 +122,29 @@ class DailyChallenge(models.Model):
     def __str__(self):
         return self.name
 
+    def get_translated_name(self, language):
+        if not language or language == 'en':
+            return self.name
+        translation = self.translations.filter(language=language).first()
+        return translation.translated_name if translation else self.name
+
+    def get_translated_description(self, language):
+        if not language or language == 'en':
+            return self.description
+        translation = self.translations.filter(language=language).first()
+        return translation.translated_description if translation else self.description
+
+class DailyChallengeTranslation(models.Model):
+    challenge = models.ForeignKey(DailyChallenge, related_name='translations', on_delete=models.CASCADE)
+    language = models.CharField(max_length=10)
+    translated_name = models.CharField(max_length=255)
+    translated_description = models.TextField()
+
+    class Meta:
+        unique_together = ('challenge', 'language')
+
+    def __str__(self):
+        return f"{self.challenge.name} - {self.language}"
 
 class ChallengeQuestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -139,6 +162,30 @@ class ChallengeQuestion(models.Model):
 
     def __str__(self):
         return f"Q{self.order}"
+
+    def get_translated_question_text(self, language):
+        if not language or language == 'en':
+            return self.question_text
+        translation = self.translations.filter(language=language).first()
+        return translation.translated_question_text if translation else self.question_text
+
+    def get_translated_answer(self, language):
+        if not language or language == 'en':
+            return self.answer
+        translation = self.translations.filter(language=language).first()
+        return translation.translated_answer if translation else self.answer
+
+class ChallengeQuestionTranslation(models.Model):
+    question = models.ForeignKey(ChallengeQuestion, related_name='translations', on_delete=models.CASCADE)
+    language = models.CharField(max_length=10)
+    translated_question_text = models.TextField()
+    translated_answer = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ('question', 'language')
+
+    def __str__(self):
+        return f"Q{self.question.order} Translation - {self.language}"
 
 class ActivityType(models.TextChoices):
     USER_REGISTERED = "user_registered", "User Registered"

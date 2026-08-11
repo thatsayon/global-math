@@ -341,6 +341,8 @@ class CreateDailyChallengeView(APIView):
         serializer = ChallengeCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        from .tasks import translate_challenge_task
+
         data = serializer.validated_data
 
         challenge = DailyChallenge.objects.create(
@@ -365,6 +367,8 @@ class CreateDailyChallengeView(APIView):
         ]
 
         ChallengeQuestion.objects.bulk_create(questions)
+
+        translate_challenge_task.delay(str(challenge.id))
 
         return Response(
             {
