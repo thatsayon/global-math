@@ -368,7 +368,7 @@ class CreateDailyChallengeView(APIView):
 
         ChallengeQuestion.objects.bulk_create(questions)
 
-        translate_challenge_task.delay(str(challenge.id))
+        transaction.on_commit(lambda: translate_challenge_task.delay(str(challenge.id)))
 
         return Response(
             {

@@ -12,6 +12,7 @@ from django.conf import settings
 from account.models import StudentProfile, UserAccount, StudentProgress
 from administration.models import DailyChallenge, ChallengeQuestion
 from challenge.models import QuestionAttempt, ChallengeAttempt
+from core.utils import get_translated_level_name
 
 from .ai_client import check_solution_with_ai
 from .pagination import StandardResultsPagination, LeaderboardPagination
@@ -111,7 +112,7 @@ class DashboardView(APIView):
             challenge_data.append({
                 "id": str(c.id),
                 "name": c.get_translated_name(user_lang),
-                "subject": c.subject.name,
+                "subject": get_translated_level_name(c.subject.name, user_lang),
                 "grade": c.grade,
                 "points": c.points,
                 "status": status
@@ -175,7 +176,7 @@ class ChallengeListView(APIView):
             {
                 "id": str(c.id),
                 "name": c.get_translated_name(user_lang),
-                "subject": c.subject.name,
+                "subject": get_translated_level_name(c.subject.name, user_lang),
                 "grade": c.grade,
                 "points": c.points,
                 "publishing_date": c.publishing_date,
