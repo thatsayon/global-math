@@ -175,7 +175,7 @@ BADGES = [
     {
         "code": "post_50",
         "name": "Content Creator",
-        "description": "50 posts created. A cornerstone of the Mathos community.",
+        "description": "50 posts created. A cornerstone of the Coyoote community.",
         "icon": "🎨",
         "category": "Social",
     },
@@ -183,7 +183,7 @@ BADGES = [
     {
         "code": "early_adopter",
         "name": "Early Adopter",
-        "description": "Joined Mathos in its earliest days. A true pioneer of the platform.",
+        "description": "Joined Coyoote in its earliest days. A true pioneer of the platform.",
         "icon": "🌱",
         "category": "Special",
     },

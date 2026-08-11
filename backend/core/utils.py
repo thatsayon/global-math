@@ -2,12 +2,24 @@ import requests
 
 LIBRETRANSLATE_URL = "https://host.mathos.cloud/translate"  # Or public API
 
+import re
+
 def translate_text(text, target_lang, source_lang='en'):
     if not text or target_lang == source_lang:
         return text
 
+    # Extract math blocks to prevent them from being translated or broken
+    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$)', re.DOTALL)
+    math_blocks = []
+    
+    def replacer(match):
+        math_blocks.append(match.group(0))
+        return f" MTHBLK{len(math_blocks)-1} "
+        
+    text_to_translate = math_pattern.sub(replacer, text)
+
     payload = {
-        "q": text,
+        "q": text_to_translate,
         "source": source_lang,
         "target": target_lang,
         "format": "text"
@@ -17,7 +29,14 @@ def translate_text(text, target_lang, source_lang='en'):
         # Send as form data instead of JSON
         response = requests.post(LIBRETRANSLATE_URL, data=payload, timeout=10)
         response.raise_for_status()
-        return response.json().get('translatedText', text)
+        translated_text = response.json().get('translatedText', text_to_translate)
+        
+        # Restore math blocks
+        for i, block in enumerate(math_blocks):
+            placeholder_pattern = re.compile(r'mthblk\s*' + str(i), re.IGNORECASE)
+            translated_text = placeholder_pattern.sub(lambda m: block, translated_text)
+            
+        return translated_text
     except Exception as e:
         print("Translation error:", e)
         return text
