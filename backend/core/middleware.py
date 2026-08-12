@@ -4,6 +4,27 @@ from django.core.cache import cache
 from account.models import DailyActivity
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+class TimezoneMiddleware:
+    """
+    Middleware to read the Time-Zone-Offset header and activate the corresponding timezone.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        tz_offset_minutes = request.headers.get('Time-Zone-Offset')
+        if tz_offset_minutes:
+            try:
+                offset = datetime.timedelta(minutes=int(tz_offset_minutes))
+                tz = datetime.timezone(offset)
+                timezone.activate(tz)
+            except ValueError:
+                timezone.deactivate()
+        else:
+            timezone.deactivate()
+
+        return self.get_response(request)
+
 class DailyActivityMiddleware:
     """
     Middleware to ensure the user gets a daily activity logged (and awarded points) 
@@ -27,7 +48,7 @@ class DailyActivityMiddleware:
         if user and user.is_authenticated and hasattr(user, 'account'):
             try:
                 student = user.account.student
-                today = timezone.now().date()
+                today = timezone.localdate()
                 cache_key = f"daily_activity_{student.id}_{today.isoformat()}"
                 
                 # Check cache to avoid hitting the database for get_or_create on every request

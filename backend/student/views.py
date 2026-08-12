@@ -312,7 +312,7 @@ class StudentDashboardView(APIView):
         student = get_object_or_404(StudentProfile, account=account)
         progress, _ = StudentProgress.objects.get_or_create(student=student)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         # -----------------------------
         # Activity from ChallengeAttempt

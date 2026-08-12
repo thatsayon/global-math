@@ -329,7 +329,7 @@ class DailyChallengeUpdateSerializer(serializers.ModelSerializer):
         )
 
     def validate_publishing_date(self, value):
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         if value < today:
             raise serializers.ValidationError(

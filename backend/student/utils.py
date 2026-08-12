@@ -10,7 +10,7 @@ from account.models import (
 )
 
 def add_points(student: StudentProfile, points: int):
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     activity, _ = DailyActivity.objects.get_or_create(
         student=student,
@@ -54,7 +54,7 @@ def calculate_streaks(active_dates):
     # -----------------------------
     # Current streak (ending today or yesterday)
     # -----------------------------
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     if today not in date_set:
         today -= timedelta(days=1)
