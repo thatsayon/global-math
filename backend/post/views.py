@@ -238,7 +238,8 @@ class PostFeedView(APIView):
         ).values_list('challenge_id', flat=True)
 
         active_challenges = list(
-            DailyChallenge.objects.exclude(id__in=completed_challenge_ids)
+            DailyChallenge.objects.filter(subject_id__in=user_levels)
+            .exclude(id__in=completed_challenge_ids)
             .select_related("subject")
             .order_by("-publishing_date")[:5]
         )
