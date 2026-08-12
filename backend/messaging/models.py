@@ -24,6 +24,7 @@ class ConversationParticipant(models.Model):
     last_read_at = models.DateTimeField(null=True, blank=True)
     joined_at = models.DateTimeField(auto_now_add=True)
     is_pinned = models.BooleanField(default=False)
+    cleared_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("user", "conversation")

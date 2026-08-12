@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
 
-from django.db.models import Max, Count, Q, Prefetch
+from django.db.models import Max, Count, Q, Prefetch, OuterRef, Subquery, F
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -86,14 +86,26 @@ class ChatListAPIView(APIView):
 
         latest_messages_qs = Message.objects.order_by('-created_at')
         
+        user_participant = ConversationParticipant.objects.filter(
+            conversation=OuterRef('pk'), user=user
+        )
+
         conversations = (
             Conversation.objects.filter(participants__user=user, is_group=False)
+            .annotate(
+                user_cleared_at=Subquery(user_participant.values('cleared_at')[:1])
+            )
             .annotate(
                 last_message_time=Max('messages__created_at'),
                 unread_count=Count(
                     'messages',
-                    filter=Q(messages__is_read=False) & ~Q(messages__sender=user)
+                    filter=Q(messages__is_read=False) 
+                    & ~Q(messages__sender=user)
+                    & (Q(messages__created_at__gt=F('user_cleared_at')) | Q(user_cleared_at__isnull=True))
                 )
+            )
+            .filter(
+                Q(user_cleared_at__isnull=True) | Q(last_message_time__gt=F('user_cleared_at'))
             )
             .prefetch_related(
                 Prefetch(
@@ -131,13 +143,21 @@ class ConversationDetailView(APIView):
             is_read=False
         ).exclude(sender=request.user).update(is_read=True)
 
-        ConversationParticipant.objects.filter(
+        participant = ConversationParticipant.objects.filter(
             conversation=conv,
             user=user
-        ).update(last_read_at=timezone.now())
+        ).first()
+
+        if participant:
+            participant.last_read_at = timezone.now()
+            participant.save()
 
         paginator = self.pagination_class()
-        messages_qs = conv.messages.order_by('-created_at')
+        messages_qs = conv.messages.all()
+        if participant and participant.cleared_at:
+            messages_qs = messages_qs.filter(created_at__gt=participant.cleared_at)
+
+        messages_qs = messages_qs.order_by('-created_at')
 
         paginated_messages = paginator.paginate_queryset(messages_qs, request)
         paginated_messages = list(paginated_messages)[::-1]
@@ -256,11 +276,15 @@ class DeleteConversationAPIView(APIView):
         if not conversation_id:
             return Response({"detail": "conversation_id is required."}, status=status.HTTP_400_BAD_REQUEST)
         
-        deleted, _ = ConversationParticipant.objects.filter(
-            user=request.user,
-            conversation_id=conversation_id
-        ).delete()
+        try:
+            participant = ConversationParticipant.objects.get(
+                user=request.user,
+                conversation_id=conversation_id
+            )
+        except ConversationParticipant.DoesNotExist:
+            return Response({"detail": "Conversation not found or already deleted."}, status=status.HTTP_404_NOT_FOUND)
         
-        if deleted:
-            return Response({"detail": "Conversation deleted successfully."}, status=status.HTTP_200_OK)
-        return Response({"detail": "Conversation not found or already deleted."}, status=status.HTTP_404_NOT_FOUND)
+        participant.cleared_at = timezone.now()
+        participant.save()
+        
+        return Response({"detail": "Conversation deleted successfully."}, status=status.HTTP_200_OK)
