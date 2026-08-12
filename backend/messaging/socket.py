@@ -209,6 +209,45 @@ async def delete_message(sid, data):
     print(f"🗑️ Message {message_id} deleted by {sender_id}")
     return {"status": "ok", "message_id": message_id}
 
+@sync_to_async
+def edit_message_in_db(message_id: str, sender_id: str, new_content: str):
+    try:
+        sender = User.objects.get(id=sender_id)
+        msg = Message.objects.get(id=message_id, sender=sender)
+        msg.content = new_content
+        msg.is_edited = True
+        msg.save(update_fields=['content', 'is_edited'])
+        return True
+    except (Message.DoesNotExist, User.DoesNotExist):
+        return False
+
+@sio.event
+async def edit_message(sid, data):
+    if not isinstance(data, dict):
+        return {"status": "error", "message": "Invalid payload"}
+
+    sender_id = connected_users.get(sid)
+    if not sender_id:
+        return {"status": "error", "message": "Unauthorized"}
+
+    message_id = data.get("message_id")
+    to_user = data.get("to_user")
+    new_content = data.get("new_content")
+
+    if not message_id or not to_user or not new_content:
+        return {"status": "error", "message": "message_id, to_user, and new_content are required"}
+
+    edited = await edit_message_in_db(message_id, sender_id, new_content)
+    if not edited:
+        return {"status": "error", "message": "Message not found or unauthorized"}
+
+    recipient_sid = user_sid_map.get(to_user)
+    if recipient_sid:
+        await sio.emit("message_edited", {"message_id": message_id, "new_content": new_content}, to=recipient_sid)
+
+    print(f"✏️ Message {message_id} edited by {sender_id}")
+    return {"status": "ok", "message_id": message_id, "new_content": new_content}
+
 @sio.event
 async def update_token(sid, data):
     if not isinstance(data, dict):

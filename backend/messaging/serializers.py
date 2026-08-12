@@ -134,6 +134,7 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
             'content',
             'created_at',
             'is_read',
+            'is_edited',
             'is_send_by_me',
             'my_profile_pic',
         )
