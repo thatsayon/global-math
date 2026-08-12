@@ -3,11 +3,13 @@ from rest_framework.response import Response
 from rest_framework import generics, status, permissions
 from rest_framework.exceptions import PermissionDenied
 
-from django.db.models import Count, Case, When, IntegerField, Value, F, Q
-from django.db.models.functions import Coalesce, Random
+from django.db.models import Count, Case, When, IntegerField, FloatField, Value, F, Q, ExpressionWrapper
+from django.db.models.functions import Coalesce, Random, Now, Extract
 from django.utils import timezone
 
 from datetime import timedelta
+import random as _random
+import math
 
 from core.pagination import (
     PostFeedPagination,
@@ -126,117 +128,185 @@ class CommentDeleteView(generics.DestroyAPIView):
 
 
 class PostFeedView(APIView):
+    """
+    Improved feed algorithm:
+    - Unseen posts are always shown before already-seen ones.
+    - Within unseen posts: high-engagement (likes + comments) and recent posts
+      rise to the top, but a per-request random shuffle is applied within each
+      score bucket so the feed looks different on every refresh.
+    - Time-decay: posts older than 7 days get a freshness penalty so that
+      stale low-engagement posts don't permanently clog the top.
+    - After all unseen posts are exhausted, seen posts appear (also shuffled).
+    """
     permission_classes = [permissions.IsAuthenticated]
 
+    # ---------------------------------------------------------------
+    # Tuning constants
+    # ---------------------------------------------------------------
+    _BUCKET_SIZE      = 10   # posts per shuffle bucket
+    _HOT_THRESHOLD    = 40   # rank_score >= this → "hot" bucket
+    _WARM_THRESHOLD   = 15   # rank_score >= this → "warm" bucket
+    _RECENT_DAYS      = 3    # posts within this many days get a freshness bonus
+    _DECAY_DAYS       = 7    # posts older than this get a freshness penalty
+
     def get(self, request):
-        user = request.user
+        user       = request.user
         user_levels = user.math_levels.values_list("id", flat=True)
 
-        seen_posts = PostView.objects.filter(
-            user=user
-        ).values_list("post_id", flat=True)
-
-        def base_queryset():
-            qs = (
-                PostModel.objects
-                .filter(classroom__isnull=True)
-                .filter(Q(post_level_id__in=user_levels) | Q(post_level__name__iexact='Other') | Q(post_level__isnull=True))
-                .exclude(user__isnull=True)
-                .exclude(user=user)
-                .select_related("user", "post_level")
-                .annotate(
-                    like_count=Count("reactions", filter=Q(reactions__reaction="like")),
-                    comment_count=Count("comments"),
-                )
-                .annotate(
-                    engagement_score=F("like_count") * 2 + F("comment_count") * 3,
-                    topic_score=Case(
-                        When(post_level_id__in=user_levels, then=Value(30)),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    ),
-                    verified_score=Case(
-                        When(is_verified=True, then=Value(10)),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    ),
-                    media_score=Case(
-                        When(image__isnull=False, then=Value(5)),
-                        When(video__isnull=False, then=Value(5)),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    ),
-                )
-                .annotate(
-                    rank_score=(
-                        F("topic_score")
-                        + F("verified_score")
-                        + F("media_score")
-                        + F("engagement_score")
-                    )
-                )
-                .annotate(
-                    is_seen=Case(
-                        When(id__in=seen_posts, then=Value(1)),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    )
-                )
-                .annotate(
-                    score_tier=Case(
-                        When(is_seen=1, then=Value(0)),
-                        When(rank_score__gte=40, then=Value(3)),
-                        When(rank_score__gte=15, then=Value(2)),
-                        default=Value(1),
-                        output_field=IntegerField(),
-                    )
-                )
-                .order_by("-score_tier", "-created_at", "-id")
-            )
-
-            from messaging.models import BlockUser
-            blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
-            blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
-            qs = qs.exclude(user_id__in=blocked_users)
-            qs = qs.exclude(user_id__in=blocking_users)
-
-            # Always exclude posts the user marked as not interested
-            not_interested_ids = PostNotInterested.objects.filter(
-                user=user
-            ).values_list("post_id", flat=True)
-            qs = qs.exclude(id__in=not_interested_ids)
-
-            return qs
-
-        queryset = base_queryset()
-
-        paginator = PostFeedPagination()
-        page = paginator.paginate_queryset(queryset, request)
-
-        # Track views AFTER pagination
-        PostView.objects.bulk_create(
-            [PostView(user=user, post=post) for post in page],
-            ignore_conflicts=True
+        seen_post_ids = set(
+            PostView.objects.filter(user=user).values_list("post_id", flat=True)
         )
+
+        from messaging.models import BlockUser
+        blocked_users   = BlockUser.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
+        blocking_users  = BlockUser.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
+        not_interested  = PostNotInterested.objects.filter(user=user).values_list("post_id", flat=True)
+
+        # ------------------------------------------------------------------
+        # Base queryset – annotate engagement & topic relevance
+        # ------------------------------------------------------------------
+        base_qs = (
+            PostModel.objects
+            .filter(classroom__isnull=True)
+            .filter(
+                Q(post_level_id__in=user_levels)
+                | Q(post_level__name__iexact="Other")
+                | Q(post_level__isnull=True)
+            )
+            .exclude(user__isnull=True)
+            .exclude(user=user)
+            .exclude(user_id__in=blocked_users)
+            .exclude(user_id__in=blocking_users)
+            .exclude(id__in=not_interested)
+            .select_related("user", "post_level")
+            .annotate(
+                like_count    = Count("reactions", filter=Q(reactions__reaction="like")),
+                comment_count = Count("comments"),
+            )
+            .annotate(
+                engagement_score = F("like_count") * 2 + F("comment_count") * 3,
+                topic_score = Case(
+                    When(post_level_id__in=user_levels, then=Value(30)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                ),
+                verified_score = Case(
+                    When(is_verified=True, then=Value(10)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                ),
+                media_score = Case(
+                    When(image__isnull=False, then=Value(5)),
+                    When(video__isnull=False, then=Value(5)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                ),
+            )
+            .annotate(
+                rank_score = (
+                    F("topic_score")
+                    + F("verified_score")
+                    + F("media_score")
+                    + F("engagement_score")
+                )
+            )
+        )
+
+        # ------------------------------------------------------------------
+        # Split into unseen vs seen pools
+        # ------------------------------------------------------------------
+        unseen_qs = base_qs.exclude(id__in=seen_post_ids)
+        seen_qs   = base_qs.filter(id__in=seen_post_ids)
+
+        # ------------------------------------------------------------------
+        # Evaluate & rank each pool with controlled in-bucket shuffle
+        # ------------------------------------------------------------------
+        now = timezone.now()
+
+        def _score_post(post):
+            """
+            Composite float score used for intra-bucket sorting.
+            Higher = better. Includes time-decay and randomness.
+            """
+            age_days = max((now - post.created_at).total_seconds() / 86400, 0)
+
+            # Freshness modifier: bonus for very recent, decay for old
+            if age_days <= self._RECENT_DAYS:
+                freshness = 20
+            elif age_days <= self._DECAY_DAYS:
+                freshness = max(0, 20 - (age_days - self._RECENT_DAYS) * 4)
+            else:
+                # Exponential decay beyond _DECAY_DAYS
+                freshness = max(0, 5 * math.exp(-0.1 * (age_days - self._DECAY_DAYS)))
+
+            base = (post.rank_score or 0) + freshness
+            # Add random jitter: ±30% of the base score, seeded by request time
+            # so the same user gets a different order on every page load
+            jitter = base * 0.30 * (_random.random() * 2 - 1)
+            return base + jitter
+
+        def _bucket_and_sort(queryset):
+            """
+            Fetch all posts, assign them to score buckets, shuffle within
+            each bucket, then return the final ordered list.
+            Buckets (descending priority):
+              3 – hot  (rank_score >= HOT_THRESHOLD)
+              2 – warm (rank_score >= WARM_THRESHOLD)
+              1 – cold (everything else)
+            Within each bucket: sorted by composite score (engagement + freshness + jitter).
+            """
+            posts = list(queryset)
+            if not posts:
+                return []
+
+            hot, warm, cold = [], [], []
+            for p in posts:
+                if (p.rank_score or 0) >= self._HOT_THRESHOLD:
+                    hot.append(p)
+                elif (p.rank_score or 0) >= self._WARM_THRESHOLD:
+                    warm.append(p)
+                else:
+                    cold.append(p)
+
+            def sort_bucket(bucket):
+                return sorted(bucket, key=_score_post, reverse=True)
+
+            return sort_bucket(hot) + sort_bucket(warm) + sort_bucket(cold)
+
+        ordered_posts = _bucket_and_sort(unseen_qs) + _bucket_and_sort(seen_qs)
+
+        # ------------------------------------------------------------------
+        # Manual pagination over the in-memory ordered list
+        # ------------------------------------------------------------------
+        paginator = PostFeedPagination()
+        page = paginator.paginate_queryset(ordered_posts, request)
+
+        # Track views AFTER pagination (only truly new views)
+        new_views = [p for p in page if p.id not in seen_post_ids]
+        if new_views:
+            PostView.objects.bulk_create(
+                [PostView(user=user, post=p) for p in new_views],
+                ignore_conflicts=True,
+            )
 
         serializer = PostFeedSerializer(
             page,
             many=True,
-            context={"request": request}
+            context={"request": request},
         )
+        feed_data = list(serializer.data)
 
-        feed_data = serializer.data
-
-        # Inject an active challenge occasionally
-        if getattr(user, 'role', '').lower() != 'teacher':
+        # ------------------------------------------------------------------
+        # Inject an active challenge card at a random position
+        # ------------------------------------------------------------------
+        if getattr(user, "role", "").lower() != "teacher":
             from administration.models import DailyChallenge
             from challenge.models import ChallengeAttempt
-            import random
 
             completed_challenge_ids = ChallengeAttempt.objects.filter(
                 student__account__user=user,
-                completed=True
-            ).values_list('challenge_id', flat=True)
+                completed=True,
+            ).values_list("challenge_id", flat=True)
 
             active_challenges = list(
                 DailyChallenge.objects.filter(subject_id__in=user_levels)
@@ -246,7 +316,7 @@ class PostFeedView(APIView):
             )
 
             if active_challenges and feed_data:
-                challenge = random.choice(active_challenges)
+                challenge = _random.choice(active_challenges)
                 challenge_dict = {
                     "item_type": "challenge",
                     "id": str(challenge.id),
@@ -256,35 +326,15 @@ class PostFeedView(APIView):
                     "points": challenge.points,
                     "publishing_date": str(challenge.publishing_date),
                 }
-                # Insert at a random position among the posts
-                insert_idx = random.randint(1, len(feed_data) - 1) if len(feed_data) > 2 else len(feed_data)
+                insert_idx = (
+                    _random.randint(1, len(feed_data) - 1)
+                    if len(feed_data) > 2
+                    else len(feed_data)
+                )
                 feed_data.insert(insert_idx, challenge_dict)
 
         return paginator.get_paginated_response(feed_data)
 
-#
-# class PostFeedView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-#
-#     def get(self, request):
-#         posts = (
-#             PostModel.objects
-#             .filter(classroom__isnull=True)   
-#             .select_related("user", "post_level")
-#             .order_by("-created_at")
-#         )
-#
-#         paginator = PostFeedPagination()
-#         result_page = paginator.paginate_queryset(posts, request)
-#
-#         serializer = PostFeedSerializer(
-#             result_page,
-#             many=True,
-#             context={"request": request}
-#         )
-#
-#         return paginator.get_paginated_response(serializer.data)
-#
 class PostLikeDislikeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
