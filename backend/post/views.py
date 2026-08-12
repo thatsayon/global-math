@@ -132,16 +132,15 @@ class PostFeedView(APIView):
         user = request.user
         user_levels = user.math_levels.values_list("id", flat=True)
 
-        recent_cutoff = timezone.now() - timedelta(hours=6)
-        recently_seen = PostView.objects.filter(
-            user=user,
-            viewed_at__gte=recent_cutoff
+        seen_posts = PostView.objects.filter(
+            user=user
         ).values_list("post_id", flat=True)
 
-        def base_queryset(exclude_seen=True):
+        def base_queryset():
             qs = (
                 PostModel.objects
-                .filter(classroom__isnull=True, post_level_id__in=user_levels)
+                .filter(classroom__isnull=True)
+                .filter(Q(post_level_id__in=user_levels) | Q(post_level__name__iexact='Other') | Q(post_level__isnull=True))
                 .exclude(user__isnull=True)
                 .exclude(user=user)
                 .select_related("user", "post_level")
@@ -177,18 +176,23 @@ class PostFeedView(APIView):
                     )
                 )
                 .annotate(
+                    is_seen=Case(
+                        When(id__in=seen_posts, then=Value(1)),
+                        default=Value(0),
+                        output_field=IntegerField(),
+                    )
+                )
+                .annotate(
                     score_tier=Case(
+                        When(is_seen=1, then=Value(0)),
                         When(rank_score__gte=40, then=Value(3)),
                         When(rank_score__gte=15, then=Value(2)),
                         default=Value(1),
                         output_field=IntegerField(),
                     )
                 )
-                .order_by("-score_tier", Random())
+                .order_by("-score_tier", "-created_at", "-id")
             )
-
-            if exclude_seen:
-                qs = qs.exclude(id__in=recently_seen)
 
             from messaging.models import BlockUser
             blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
@@ -204,19 +208,7 @@ class PostFeedView(APIView):
 
             return qs
 
-        # -----------------------------
-        # Determine if we should exclude seen (only on page 1)
-        # -----------------------------
-        page_param = request.query_params.get('page', '1')
-        is_first_page = page_param == '1' or page_param == 1
-
-        queryset = base_queryset(exclude_seen=is_first_page)
-
-        # -----------------------------
-        # FALLBACK: nothing left → relax exclusion
-        # -----------------------------
-        if is_first_page and not queryset.exists():
-            queryset = base_queryset(exclude_seen=False)
+        queryset = base_queryset()
 
         paginator = PostFeedPagination()
         page = paginator.paginate_queryset(queryset, request)
