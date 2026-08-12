@@ -364,9 +364,10 @@ class StudentDashboardView(APIView):
         # -----------------------------
         # Level progression
         # -----------------------------
-        next_level_points = (
-            progress.BASE_POINTS * (progress.level + 1) ** 2
-        )
+        # Points needed for Level L = 25 * (L^2 + L - 2)
+        # So points needed for the next level (progress.level + 1):
+        next_level = progress.level + 1
+        next_level_points = 25 * (next_level**2 + next_level - 2)
 
         data = {
             "progress": {

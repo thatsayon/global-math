@@ -59,10 +59,12 @@ class StudentProgress(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def recalculate_level(self):
-        self.level = max(
-            1,
-            int((self.total_points / self.BASE_POINTS) ** 0.5)
-        )
+        import math
+        # Level 1 requires 0 points. Level 2: 100 points. Level 3: 250 points.
+        # Formula for total points to reach Level L is P = 25 * (L^2 + L - 2)
+        # Solving for L gives the below formula.
+        val = (-1 + math.sqrt(9 + 4 * self.total_points / 25)) / 2
+        self.level = max(1, int(val))
 
     def add_points(self, points: int):
         self.total_points += points
