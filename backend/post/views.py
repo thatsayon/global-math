@@ -228,36 +228,37 @@ class PostFeedView(APIView):
         feed_data = serializer.data
 
         # Inject an active challenge occasionally
-        from administration.models import DailyChallenge
-        from challenge.models import ChallengeAttempt
-        import random
+        if getattr(user, 'role', '').lower() != 'teacher':
+            from administration.models import DailyChallenge
+            from challenge.models import ChallengeAttempt
+            import random
 
-        completed_challenge_ids = ChallengeAttempt.objects.filter(
-            student__account__user=user,
-            completed=True
-        ).values_list('challenge_id', flat=True)
+            completed_challenge_ids = ChallengeAttempt.objects.filter(
+                student__account__user=user,
+                completed=True
+            ).values_list('challenge_id', flat=True)
 
-        active_challenges = list(
-            DailyChallenge.objects.filter(subject_id__in=user_levels)
-            .exclude(id__in=completed_challenge_ids)
-            .select_related("subject")
-            .order_by("-publishing_date")[:5]
-        )
+            active_challenges = list(
+                DailyChallenge.objects.filter(subject_id__in=user_levels)
+                .exclude(id__in=completed_challenge_ids)
+                .select_related("subject")
+                .order_by("-publishing_date")[:5]
+            )
 
-        if active_challenges and feed_data:
-            challenge = random.choice(active_challenges)
-            challenge_dict = {
-                "item_type": "challenge",
-                "id": str(challenge.id),
-                "name": challenge.name,
-                "subject": challenge.subject.name if challenge.subject else "General",
-                "grade": challenge.grade,
-                "points": challenge.points,
-                "publishing_date": str(challenge.publishing_date),
-            }
-            # Insert at a random position among the posts
-            insert_idx = random.randint(1, len(feed_data) - 1) if len(feed_data) > 2 else len(feed_data)
-            feed_data.insert(insert_idx, challenge_dict)
+            if active_challenges and feed_data:
+                challenge = random.choice(active_challenges)
+                challenge_dict = {
+                    "item_type": "challenge",
+                    "id": str(challenge.id),
+                    "name": challenge.name,
+                    "subject": challenge.subject.name if challenge.subject else "General",
+                    "grade": challenge.grade,
+                    "points": challenge.points,
+                    "publishing_date": str(challenge.publishing_date),
+                }
+                # Insert at a random position among the posts
+                insert_idx = random.randint(1, len(feed_data) - 1) if len(feed_data) > 2 else len(feed_data)
+                feed_data.insert(insert_idx, challenge_dict)
 
         return paginator.get_paginated_response(feed_data)
 
