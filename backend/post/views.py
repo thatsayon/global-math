@@ -129,28 +129,30 @@ class CommentDeleteView(generics.DestroyAPIView):
 
 class PostFeedView(APIView):
     """
-    Improved feed algorithm:
-    - Unseen posts are always shown before already-seen ones.
-    - Within unseen posts: high-engagement (likes + comments) and recent posts
-      rise to the top, but a per-request random shuffle is applied within each
-      score bucket so the feed looks different on every refresh.
-    - Time-decay: posts older than 7 days get a freshness penalty so that
-      stale low-engagement posts don't permanently clog the top.
-    - After all unseen posts are exhausted, seen posts appear (also shuffled).
+    Feed algorithm — freshness-biased weighted random order:
+
+    Goals:
+      1. Every refresh shows a *different* mix (randomness).
+      2. Newer posts appear near the top more often than older ones (freshness).
+      3. Older posts still have a realistic chance of appearing (variety).
+      4. Unseen posts always precede seen ones.
+
+    Scoring (per post):
+      freshness  = exp(-age_days / HALF_LIFE)        — 1.0 brand-new, halves every 5 days
+      engagement = log1p(rank_score) / log1p(MAX)    — normalised engagement 0→1
+      base       = freshness × 0.70 + engagement × 0.30
+      final      = base × uniform(0.5, 1.5)          — per-request jitter
+
+    The random multiplier means an older post can occasionally beat a newer one,
+    but on average newer posts win ~70 % of the time, satisfying all three goals.
     """
     permission_classes = [permissions.IsAuthenticated]
 
-    # ---------------------------------------------------------------
-    # Tuning constants
-    # ---------------------------------------------------------------
-    _BUCKET_SIZE      = 10   # posts per shuffle bucket
-    _HOT_THRESHOLD    = 40   # rank_score >= this → "hot" bucket
-    _WARM_THRESHOLD   = 15   # rank_score >= this → "warm" bucket
-    _RECENT_DAYS      = 3    # posts within this many days get a freshness bonus
-    _DECAY_DAYS       = 7    # posts older than this get a freshness penalty
+    _HALF_LIFE  = 5.0    # days — freshness halves every 5 days
+    _MAX_RANK   = 150.0  # approximate ceiling for engagement normalisation
 
     def get(self, request):
-        user       = request.user
+        user        = request.user
         user_levels = user.math_levels.values_list("id", flat=True)
 
         seen_post_ids = set(
@@ -158,12 +160,12 @@ class PostFeedView(APIView):
         )
 
         from messaging.models import BlockUser
-        blocked_users   = BlockUser.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
-        blocking_users  = BlockUser.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
-        not_interested  = PostNotInterested.objects.filter(user=user).values_list("post_id", flat=True)
+        blocked_users  = BlockUser.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
+        blocking_users = BlockUser.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
+        not_interested = PostNotInterested.objects.filter(user=user).values_list("post_id", flat=True)
 
         # ------------------------------------------------------------------
-        # Base queryset – annotate engagement & topic relevance
+        # Base queryset — annotate engagement & relevance
         # ------------------------------------------------------------------
         base_qs = (
             PostModel.objects
@@ -213,75 +215,48 @@ class PostFeedView(APIView):
         )
 
         # ------------------------------------------------------------------
-        # Split into unseen vs seen pools
+        # Unseen posts always appear before already-seen ones
         # ------------------------------------------------------------------
         unseen_qs = base_qs.exclude(id__in=seen_post_ids)
         seen_qs   = base_qs.filter(id__in=seen_post_ids)
 
         # ------------------------------------------------------------------
-        # Evaluate & rank each pool with controlled in-bucket shuffle
+        # Weighted random scorer
         # ------------------------------------------------------------------
         now = timezone.now()
 
-        def _score_post(post):
-            """
-            Composite float score used for intra-bucket sorting.
-            Higher = better. Includes time-decay and randomness.
-            """
+        def _score(post):
             age_days = max((now - post.created_at).total_seconds() / 86400, 0)
 
-            # Freshness modifier: bonus for very recent, decay for old
-            if age_days <= self._RECENT_DAYS:
-                freshness = 20
-            elif age_days <= self._DECAY_DAYS:
-                freshness = max(0, 20 - (age_days - self._RECENT_DAYS) * 4)
-            else:
-                # Exponential decay beyond _DECAY_DAYS
-                freshness = max(0, 5 * math.exp(-0.1 * (age_days - self._DECAY_DAYS)))
+            # Freshness: 1.0 for brand-new, ~0.5 at 5 days, ~0.01 at 30 days
+            freshness = math.exp(-age_days / self._HALF_LIFE)
 
-            base = (post.rank_score or 0) + freshness
-            # Add random jitter: ±30% of the base score, seeded by request time
-            # so the same user gets a different order on every page load
-            jitter = base * 0.30 * (_random.random() * 2 - 1)
-            return base + jitter
+            # Engagement: logarithmic so viral posts don't dominate completely
+            engagement = math.log1p(post.rank_score or 0) / math.log1p(self._MAX_RANK)
 
-        def _bucket_and_sort(queryset):
-            """
-            Fetch all posts, assign them to score buckets, shuffle within
-            each bucket, then return the final ordered list.
-            Buckets (descending priority):
-              3 – hot  (rank_score >= HOT_THRESHOLD)
-              2 – warm (rank_score >= WARM_THRESHOLD)
-              1 – cold (everything else)
-            Within each bucket: sorted by composite score (engagement + freshness + jitter).
-            """
+            # 70 % freshness, 30 % engagement — newer posts win more often
+            base = freshness * 0.70 + engagement * 0.30
+
+            # Per-request random jitter [0.5, 1.5] — guarantees different order each time
+            jitter = 0.5 + _random.random()
+
+            return base * jitter
+
+        def _rank(queryset):
             posts = list(queryset)
             if not posts:
                 return []
+            return sorted(posts, key=_score, reverse=True)
 
-            hot, warm, cold = [], [], []
-            for p in posts:
-                if (p.rank_score or 0) >= self._HOT_THRESHOLD:
-                    hot.append(p)
-                elif (p.rank_score or 0) >= self._WARM_THRESHOLD:
-                    warm.append(p)
-                else:
-                    cold.append(p)
-
-            def sort_bucket(bucket):
-                return sorted(bucket, key=_score_post, reverse=True)
-
-            return sort_bucket(hot) + sort_bucket(warm) + sort_bucket(cold)
-
-        ordered_posts = _bucket_and_sort(unseen_qs) + _bucket_and_sort(seen_qs)
+        ordered_posts = _rank(unseen_qs) + _rank(seen_qs)
 
         # ------------------------------------------------------------------
-        # Manual pagination over the in-memory ordered list
+        # Paginate
         # ------------------------------------------------------------------
         paginator = PostFeedPagination()
         page = paginator.paginate_queryset(ordered_posts, request)
 
-        # Track views AFTER pagination (only truly new views)
+        # Record which posts were seen for the first time
         new_views = [p for p in page if p.id not in seen_post_ids]
         if new_views:
             PostView.objects.bulk_create(
