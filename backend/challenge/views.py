@@ -508,7 +508,7 @@ class NextChallengeQuestionView(APIView):
         )
 
 
-def save_temp_file(file):
+def save_temp_file(request, file):
     upload_dir = os.path.join(settings.MEDIA_ROOT, "ai_uploads")
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -522,11 +522,8 @@ def save_temp_file(file):
         for chunk in file.chunks():
             destination.write(chunk)
 
-    public_url = (
-        f"{settings.BASE_URL}"
-        f"{settings.MEDIA_URL}"
-        f"ai_uploads/{filename}"
-    )
+    # Use request to build the absolute URI dynamically (works for local testing and prod)
+    public_url = request.build_absolute_uri(f"{settings.MEDIA_URL}ai_uploads/{filename}")
 
     return file_path, public_url
 
@@ -596,7 +593,7 @@ class SubmitSolutionView(APIView):
             # Save image temporarily
             # -----------------------------
             if solution_image:
-                file_path, solution_url = save_temp_file(solution_image)
+                file_path, solution_url = save_temp_file(request, solution_image)
                 temp_files.append(file_path)
 
             user_lang = getattr(request.user, 'language', 'en')
