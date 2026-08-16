@@ -292,11 +292,12 @@ class PostFeedView(APIView):
 
             if active_challenges and feed_data:
                 challenge = _random.choice(active_challenges)
+                user_lang = getattr(request.user, "language", "en")
                 challenge_dict = {
                     "item_type": "challenge",
                     "id": str(challenge.id),
-                    "name": challenge.name,
-                    "subject": challenge.subject.name if challenge.subject else "General",
+                    "name": challenge.get_translated_name(user_lang),
+                    "subject": challenge.subject.get_translated_name(user_lang) if challenge.subject else "General",
                     "grade": challenge.grade,
                     "points": challenge.points,
                     "publishing_date": str(challenge.publishing_date),
