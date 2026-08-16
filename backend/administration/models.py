@@ -38,6 +38,29 @@ class MathLevels(models.Model):
             self.slug = slug
         super().save(*args, **kwargs)
 
+    def get_translated_name(self, language):
+        if not language or language == 'en':
+            return self.name
+        translation = self.translations.filter(language=language).first()
+        return translation.translated_name if translation else self.name
+
+
+class MathLevelTranslation(models.Model):
+    math_level = models.ForeignKey(MathLevels, related_name='translations', on_delete=models.CASCADE)
+    language = models.CharField(max_length=10)
+    translated_name = models.TextField()
+
+    class Meta:
+        unique_together = ('math_level', 'language')
+        app_label = 'administration'
+
+    def __str__(self):
+        return f"{self.math_level.name} - {self.language}"
+
+
+class DummyTest(models.Model):
+    name = models.CharField(max_length=10)
+
 class RecentActivity(models.Model):
     class RecentActivity(models.TextChoices):
         NEW_USER_CREATED = "new_user_created", "New User Created"

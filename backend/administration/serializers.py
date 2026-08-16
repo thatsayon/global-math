@@ -196,9 +196,8 @@ class MathLevelsSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "slug", "level_type")
 
     def get_name(self, obj):
-        level_name = obj.name
         user_lang = self.context.get('request').user.language if self.context.get('request') and hasattr(self.context.get('request').user, 'language') else 'en'
-        return get_translated_level_name(level_name, user_lang)
+        return obj.get_translated_name(user_lang)
 
 class AdminProfileSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ImageField(required=False)
@@ -265,6 +264,12 @@ class LevelAdjustmentSerializer(serializers.ModelSerializer):
             "level_type"
         )
         read_only_fields = ("slug",)
+
+    def save(self, **kwargs):
+        instance = super().save(**kwargs)
+        from administration.tasks import translate_math_level_task
+        translate_math_level_task.delay(str(instance.id))
+        return instance
 
 
 class PointAdjustmentSerializer(serializers.ModelSerializer):

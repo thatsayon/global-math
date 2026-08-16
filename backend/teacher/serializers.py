@@ -43,7 +43,8 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ('email',)
 
     def get_math_levels_info(self, obj):
-        return [{"id": level.id, "name": level.name, "level_type": level.level_type} 
+        user_lang = self.context.get('request').user.language if self.context.get('request') and hasattr(self.context.get('request').user, 'language') else 'en'
+        return [{'id': level.id, 'name': level.get_translated_name(user_lang), 'level_type': level.level_type} 
                 for level in obj.math_levels.all() if level.name.lower() != 'other']
 
     def update(self, instance, validated_data):

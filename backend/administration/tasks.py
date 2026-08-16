@@ -57,3 +57,30 @@ def translate_challenge_task(challenge_id):
         logger.error(f"Challenge {challenge_id} not found for translation")
     except Exception as e:
         logger.error(f"Failed to translate challenge {challenge_id}: {str(e)}")
+
+
+@shared_task
+def translate_math_level_task(math_level_id):
+    from administration.models import MathLevels, MathLevelTranslation
+    try:
+        math_level = MathLevels.objects.get(id=math_level_id)
+        source_lang = 'en'
+        target_languages = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'he']
+        
+        for lang in target_languages:
+            if lang == source_lang:
+                continue
+                
+            translated_name = translate_text(math_level.name, target_lang=lang, source_lang=source_lang)
+            
+            MathLevelTranslation.objects.update_or_create(
+                math_level=math_level,
+                language=lang,
+                defaults={
+                    'translated_name': translated_name
+                }
+            )
+    except MathLevels.DoesNotExist:
+        logger.error(f"MathLevels {math_level_id} not found for translation")
+    except Exception as e:
+        logger.error(f"Failed to translate math level {math_level_id}: {str(e)}")
