@@ -167,7 +167,7 @@ class GetChatMessagesView(GenericAPIView):
 
         queryset = ChatMessage.objects.filter(
             session=session
-        ).order_by("created_at")
+        ).order_by("-created_at")
 
         page = self.paginate_queryset(queryset)
         if page is not None:
