@@ -16,10 +16,9 @@ class CreateChatSessionView(APIView):
 
     def post(self, request):
         user = request.user
-        post_id = request.data.get("post_id")
 
-        # 1. Check if session already exists for this post (or globally if none provided)
-        existing_session = ChatSession.objects.filter(user=user, post_id=post_id).first()
+        # 1. Check if session already exists
+        existing_session = ChatSession.objects.filter(user=user).first()
         if existing_session:
             serializer = ChatSessionSerializer(existing_session)
             return Response(
@@ -53,8 +52,7 @@ class CreateChatSessionView(APIView):
         # 3. Save session
         session = ChatSession.objects.create(
             user=user,
-            ai_session_id=ai_session_id,
-            post_id=post_id
+            ai_session_id=ai_session_id
         )
 
         serializer = ChatSessionSerializer(session)
