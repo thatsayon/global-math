@@ -665,6 +665,7 @@ class SubmitSolutionView(APIView):
                             "order": question.order,
                             "correct": is_correct,
                             "points_awarded": points_awarded,
+                            "correct_answer": question.get_translated_answer(user_lang) if not is_correct else None,
                         },
                         "next_question": {
                             "question_id": str(next_question.id),
@@ -695,6 +696,13 @@ class SubmitSolutionView(APIView):
             return Response(
                 {
                     "status": "completed",
+                    "current": {
+                        "question_id": str(question.id),
+                        "order": question.order,
+                        "correct": is_correct,
+                        "points_awarded": points_awarded,
+                        "correct_answer": question.get_translated_answer(user_lang) if not is_correct else None,
+                    },
                     "challenge": {
                         "id": str(challenge.id),
                         "name": challenge.get_translated_name(user_lang),
