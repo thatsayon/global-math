@@ -9,7 +9,7 @@ def translate_text(text, target_lang, source_lang='en'):
         return text
 
     # Extract math blocks to prevent them from being translated or broken
-    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$)', re.DOTALL)
+    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
     math_blocks = []
     
     def replacer(match):
@@ -128,7 +128,7 @@ def translate_texts_batch(texts, target_lang, source_lang='en'):
     if target_lang == source_lang:
         return texts
 
-    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$)', re.DOTALL)
+    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
     
     texts_to_translate = []
     all_math_blocks = []

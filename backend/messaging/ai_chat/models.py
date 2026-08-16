@@ -25,6 +25,13 @@ class ChatSession(models.Model):
         max_length=255,
         unique=True
     )
+    
+    # Associated post ID (if applicable)
+    post_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
