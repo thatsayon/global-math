@@ -331,6 +331,12 @@ class PostLikeDislikeView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if post.user == request.user:
+            return Response(
+                {"error": "You cannot react to your own post"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         reaction, created = PostReaction.objects.get_or_create(
             user=request.user,
             post=post,
@@ -523,6 +529,9 @@ class CommentReactionView(APIView):
             comment = CommentModel.objects.get(id=comment_id)
         except CommentModel.DoesNotExist:
             return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if comment.user == request.user:
+            return Response({"error": "You cannot react to your own comment"}, status=status.HTTP_400_BAD_REQUEST)
 
         reaction_type = request.data.get("reaction")
         if reaction_type not in ["like", "dislike"]:
