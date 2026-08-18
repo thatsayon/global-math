@@ -16,6 +16,8 @@ class CreateClassroomSerializer(serializers.ModelSerializer):
         )
 
 class ClassroomDetailSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Classroom
         fields = (
@@ -28,6 +30,15 @@ class ClassroomDetailSerializer(serializers.ModelSerializer):
             "is_public",
             "image"
         )
+
+    def get_image(self, obj):
+        if obj.image:
+            url = obj.image.url
+            if 'res.cloudinary.com' in url and '/upload/' in url:
+                if '/upload/v' in url:
+                    return url.replace('/upload/v', '/upload/w_200,h_200,c_fill,q_auto,f_auto/v')
+            return url
+        return None
 
 class JoinClassroomSerializer(serializers.ModelSerializer):
     class Meta:
