@@ -9,7 +9,7 @@ def translate_text(text, target_lang, source_lang='en'):
         return text
 
     # Extract math blocks to prevent them from being translated or broken
-    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
+    math_pattern = re.compile(r'(```math.*?```|\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
     math_blocks = []
     
     def replacer(match):
@@ -33,7 +33,7 @@ def translate_text(text, target_lang, source_lang='en'):
         
         # Restore math blocks
         for i, block in enumerate(math_blocks):
-            placeholder_pattern = re.compile(r'mthblk\s*' + str(i), re.IGNORECASE)
+            placeholder_pattern = re.compile(r'mthblk\s*' + str(i) + r'\b', re.IGNORECASE)
             translated_text = placeholder_pattern.sub(lambda m: block, translated_text)
             
         return translated_text
@@ -128,7 +128,7 @@ def translate_texts_batch(texts, target_lang, source_lang='en'):
     if target_lang == source_lang:
         return texts
 
-    math_pattern = re.compile(r'(\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
+    math_pattern = re.compile(r'(```math.*?```|\\\(.*?\\\)|\\\[.*?\\\]|\$\$.*?\$\$|\$.*?\$)', re.DOTALL)
     
     texts_to_translate = []
     all_math_blocks = []
@@ -171,7 +171,7 @@ def translate_texts_batch(texts, target_lang, source_lang='en'):
                 
             math_blocks = all_math_blocks[i]
             for j, block in enumerate(math_blocks):
-                placeholder_pattern = re.compile(r'mthblk\s*' + str(j), re.IGNORECASE)
+                placeholder_pattern = re.compile(r'mthblk\s*' + str(j) + r'\b', re.IGNORECASE)
                 translated_text = placeholder_pattern.sub(lambda m: block, translated_text)
             final_translated.append(translated_text)
             
