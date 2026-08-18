@@ -53,12 +53,13 @@ def check_challenge_badges(sender, instance, created, **kwargs):
         pass
 
     # ---- Streak badges ----
+    from django.utils import timezone
     challenge_dates = list(
         ChallengeAttempt.objects
         .filter(student=student, completed=True)
         .values_list('created_at', flat=True)
     )
-    challenge_dates = [dt.date() for dt in challenge_dates]
+    challenge_dates = [timezone.localtime(dt).date() for dt in challenge_dates if dt]
     current_streak, _ = calculate_streaks(challenge_dates)
 
     if current_streak >= 7:
