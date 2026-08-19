@@ -94,14 +94,38 @@ class SendChatMessageView(APIView):
             content=message
         )
 
+        # Resolve user's preferred language (default to English)
+        user_lang = getattr(request.user, 'language', 'en')
+
+        # Language name map for the instruction prefix
+        LANGUAGE_NAMES = {
+            'en': 'English',
+            'es': 'Spanish',
+            'fr': 'French',
+            'de': 'German',
+            'zh': 'Chinese',
+            'ja': 'Japanese',
+            'he': 'Hebrew',
+        }
+        lang_name = LANGUAGE_NAMES.get(user_lang, 'English')
+
+        # Prepend a language instruction so the AI always responds
+        # in the user's preferred language, regardless of session history.
+        language_instruction = (
+            f"[IMPORTANT: Always respond in {lang_name} only, "
+            f"no matter what language was used previously.]\n\n"
+        )
+        message_with_lang = language_instruction + message
+
         # Send to AI
         ai_chat_base = os.getenv('AI_CHAT_BASE_URL')
         try:
             res = requests.post(
                 f"{ai_chat_base}/api/chat/",
                 json={
-                    "message": message,
-                    "session_id": session.ai_session_id
+                    "message": message_with_lang,
+                    "session_id": session.ai_session_id,
+                    "language": user_lang,
                 },
                 timeout=30
             )
