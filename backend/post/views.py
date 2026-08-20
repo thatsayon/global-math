@@ -3,18 +3,10 @@ from rest_framework.response import Response
 from rest_framework import generics, status, permissions
 from rest_framework.exceptions import PermissionDenied
 
-from django.db.models import Count, Case, When, IntegerField, FloatField, Value, F, Q, ExpressionWrapper
-from django.db.models.functions import Coalesce, Random, Now, Extract
+from django.db.models import Q
 from django.utils import timezone
 
-from datetime import timedelta
-import random as _random
-import math
-
-from core.pagination import (
-    PostFeedPagination,
-    CommentPagination,
-)
+from core.pagination import CommentPagination
 
 from .serializers import (
     PostSerializer,
@@ -129,43 +121,72 @@ class CommentDeleteView(generics.DestroyAPIView):
 
 class PostFeedView(APIView):
     """
-    Feed algorithm — freshness-biased weighted random order:
+    Smart unseen-first feed.
 
-    Goals:
-      1. Every refresh shows a *different* mix (randomness).
-      2. Newer posts appear near the top more often than older ones (freshness).
-      3. Older posts still have a realistic chance of appearing (variety).
-      4. Unseen posts always precede seen ones.
+    Priority:
+      1. Posts the current user has NOT yet seen — newest first.
+      2. Once unseen posts run out (or don't fill the page), fill remaining
+         slots with the most-recent seen/older posts.
 
-    Scoring (per post):
-      freshness  = exp(-age_days / HALF_LIFE)        — 1.0 brand-new, halves every 5 days
-      engagement = log1p(rank_score) / log1p(MAX)    — normalised engagement 0→1
-      base       = freshness × 0.70 + engagement × 0.30
-      final      = base × uniform(0.5, 1.5)          — per-request jitter
+    Pagination uses two independent offsets carried in the query string:
+      unseen_offset  — how many unseen posts to skip (default 0)
+      seen_offset    — how many seen posts to skip  (default 0)
 
-    The random multiplier means an older post can occasionally beat a newer one,
-    but on average newer posts win ~70 % of the time, satisfying all three goals.
+    The `next` URL in the response encodes the correct next offsets so the
+    client never needs to calculate them manually.  The Flutter FeedProvider
+    follows the `next` URL directly.
+
+    Read tracking:
+      A PostView row is created (idempotently via ignore_conflicts) for every
+      post delivered on a page.  Subsequent requests therefore exclude those
+      posts from Pool A and move them to Pool B fallback.
+
+    Race safety:
+      bulk_create(ignore_conflicts=True) + the DB UNIQUE constraint on
+      (user, post) guarantee that concurrent requests cannot produce duplicate
+      PostView rows.
+
+    Existing feed rules preserved:
+      - classroom posts excluded
+      - math-level / "Other" / null-level filtering
+      - blocked / blocking user exclusion
+      - "not interested" post exclusion
+      - daily challenge card injection
+      - teacher role exclusion from challenges
     """
     permission_classes = [permissions.IsAuthenticated]
 
-    _HALF_LIFE  = 5.0    # days — freshness halves every 5 days
-    _MAX_RANK   = 150.0  # approximate ceiling for engagement normalisation
+    PAGE_SIZE = 10
 
     def get(self, request):
         user        = request.user
-        user_levels = user.math_levels.values_list("id", flat=True)
+        user_levels = list(user.math_levels.values_list("id", flat=True))
 
-        seen_post_ids = set(
-            PostView.objects.filter(user=user).values_list("post_id", flat=True)
-        )
+        # ------------------------------------------------------------------
+        # Parse dual-offset cursor from query string
+        # ------------------------------------------------------------------
+        try:
+            unseen_offset = max(0, int(request.query_params.get("unseen_offset", 0)))
+        except (TypeError, ValueError):
+            unseen_offset = 0
 
+        try:
+            seen_offset = max(0, int(request.query_params.get("seen_offset", 0)))
+        except (TypeError, ValueError):
+            seen_offset = 0
+
+        page_size = self.PAGE_SIZE
+
+        # ------------------------------------------------------------------
+        # Block / mute / not-interested lists
+        # ------------------------------------------------------------------
         from messaging.models import BlockUser
         blocked_users  = BlockUser.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
         not_interested = PostNotInterested.objects.filter(user=user).values_list("post_id", flat=True)
 
         # ------------------------------------------------------------------
-        # Base queryset — annotate engagement & relevance
+        # Base queryset — all visibility / level / block rules applied once
         # ------------------------------------------------------------------
         base_qs = (
             PostModel.objects
@@ -181,89 +202,68 @@ class PostFeedView(APIView):
             .exclude(user_id__in=blocking_users)
             .exclude(id__in=not_interested)
             .select_related("user", "post_level")
-            .annotate(
-                like_count    = Count("reactions", filter=Q(reactions__reaction="like")),
-                comment_count = Count("comments"),
-            )
-            .annotate(
-                engagement_score = F("like_count") * 2 + F("comment_count") * 3,
-                topic_score = Case(
-                    When(post_level_id__in=user_levels, then=Value(30)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                verified_score = Case(
-                    When(is_verified=True, then=Value(10)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                media_score = Case(
-                    When(image__isnull=False, then=Value(5)),
-                    When(video__isnull=False, then=Value(5)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-            )
-            .annotate(
-                rank_score = (
-                    F("topic_score")
-                    + F("verified_score")
-                    + F("media_score")
-                    + F("engagement_score")
-                )
-            )
+            .prefetch_related("reactions", "comments", "translations")
         )
 
         # ------------------------------------------------------------------
-        # Unseen posts always appear before already-seen ones
+        # Pool A — unseen posts (LEFT JOIN, no PostView row for this user)
+        # Pool B — seen fallback (INNER JOIN, PostView row exists)
+        # Both ordered newest-first for stable, predictable pagination.
         # ------------------------------------------------------------------
-        unseen_qs = base_qs.exclude(id__in=seen_post_ids)
-        seen_qs   = base_qs.filter(id__in=seen_post_ids)
+        unseen_qs = (
+            base_qs
+            .exclude(
+                id__in=PostView.objects.filter(user=user).values("post_id")
+            )
+            .order_by("-created_at")
+        )
 
-        # ------------------------------------------------------------------
-        # Weighted random scorer
-        # ------------------------------------------------------------------
-        now = timezone.now()
-
-        def _score(post):
-            age_days = max((now - post.created_at).total_seconds() / 86400, 0)
-
-            # Freshness: 1.0 for brand-new, ~0.5 at 5 days, ~0.01 at 30 days
-            freshness = math.exp(-age_days / self._HALF_LIFE)
-
-            # Engagement: logarithmic so viral posts don't dominate completely
-            engagement = math.log1p(post.rank_score or 0) / math.log1p(self._MAX_RANK)
-
-            # 70 % freshness, 30 % engagement — newer posts win more often
-            base = freshness * 0.70 + engagement * 0.30
-
-            # Per-request random jitter [0.5, 1.5] — guarantees different order each time
-            jitter = 0.5 + _random.random()
-
-            return base * jitter
-
-        def _rank(queryset):
-            posts = list(queryset)
-            if not posts:
-                return []
-            return sorted(posts, key=_score, reverse=True)
-
-        ordered_posts = _rank(unseen_qs) + _rank(seen_qs)
+        seen_qs = (
+            base_qs
+            .filter(
+                id__in=PostView.objects.filter(user=user).values("post_id")
+            )
+            .order_by("-created_at")
+        )
 
         # ------------------------------------------------------------------
-        # Paginate
+        # Assemble page from the two pools
         # ------------------------------------------------------------------
-        paginator = PostFeedPagination()
-        page = paginator.paginate_queryset(ordered_posts, request)
+        unseen_slice = list(unseen_qs[unseen_offset: unseen_offset + page_size])
+        unseen_count = len(unseen_slice)
 
-        # Record which posts were seen for the first time
-        new_views = [p for p in page if p.id not in seen_post_ids]
+        if unseen_count >= page_size:
+            page = unseen_slice
+            next_unseen_offset = unseen_offset + page_size
+            next_seen_offset   = seen_offset
+            has_more = True  # conservatively assume more unseen exist
+        else:
+            remaining  = page_size - unseen_count
+            seen_slice = list(seen_qs[seen_offset: seen_offset + remaining])
+            page = unseen_slice + seen_slice
+
+            next_unseen_offset = unseen_offset + unseen_count
+            next_seen_offset   = seen_offset + len(seen_slice)
+
+            # No more data when both pools are exhausted
+            has_more = len(seen_slice) == remaining
+
+        # ------------------------------------------------------------------
+        # Mark delivered posts as read (idempotent, race-safe)
+        # ------------------------------------------------------------------
+        already_seen_ids = set(
+            PostView.objects.filter(user=user).values_list("post_id", flat=True)
+        )
+        new_views = [p for p in page if p.id not in already_seen_ids]
         if new_views:
             PostView.objects.bulk_create(
                 [PostView(user=user, post=p) for p in new_views],
                 ignore_conflicts=True,
             )
 
+        # ------------------------------------------------------------------
+        # Serialize
+        # ------------------------------------------------------------------
         serializer = PostFeedSerializer(
             page,
             many=True,
@@ -291,6 +291,7 @@ class PostFeedView(APIView):
             )
 
             if active_challenges and feed_data:
+                import random as _random
                 challenge = _random.choice(active_challenges)
                 user_lang = getattr(request.user, "language", "en")
                 challenge_dict = {
@@ -309,7 +310,25 @@ class PostFeedView(APIView):
                 )
                 feed_data.insert(insert_idx, challenge_dict)
 
-        return paginator.get_paginated_response(feed_data)
+        # ------------------------------------------------------------------
+        # Build next URL (dual-offset cursor)
+        # ------------------------------------------------------------------
+        if has_more:
+            base_url = request.build_absolute_uri(request.path)
+            next_url = (
+                f"{base_url}"
+                f"?unseen_offset={next_unseen_offset}"
+                f"&seen_offset={next_seen_offset}"
+            )
+        else:
+            next_url = None
+
+        return Response({
+            "count": len(feed_data),
+            "next": next_url,
+            "previous": None,
+            "results": feed_data,
+        })
 
 class PostLikeDislikeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
