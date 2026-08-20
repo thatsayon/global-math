@@ -233,70 +233,13 @@ class PostFeedView(APIView):
                 like_count    = Count("reactions", filter=Q(reactions__reaction="like")),
                 comment_count = Count("comments"),
             )
-            .annotate(
-                engagement_score = F("like_count") * 2 + F("comment_count") * 3,
-                topic_score = Case(
-                    When(post_level_id__in=user_levels, then=Value(30)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                verified_score = Case(
-                    When(is_verified=True, then=Value(10)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-                media_score = Case(
-                    When(image__isnull=False, then=Value(5)),
-                    When(video__isnull=False, then=Value(5)),
-                    default=Value(0),
-                    output_field=IntegerField(),
-                ),
-            )
-            .annotate(
-                rank_score = (
-                    F("topic_score")
-                    + F("verified_score")
-                    + F("media_score")
-                    + F("engagement_score")
-                )
-            )
         )
 
-        unseen_qs = base_qs.exclude(id__in=seen_post_ids)
-        seen_qs   = base_qs.filter(id__in=seen_post_ids)
-
-        # ------------------------------------------------------------------
-        # Weighted deterministic random scorer
-        # ------------------------------------------------------------------
-        now = timezone.now()
-
-        def _score(post):
-            age_days = max((now - post.created_at).total_seconds() / 86400, 0)
-
-            # Freshness: 1.0 for brand-new, ~0.5 at 5 days, ~0.01 at 30 days
-            freshness = math.exp(-age_days / self._HALF_LIFE)
-
-            # Engagement: logarithmic so viral posts don't dominate completely
-            engagement = math.log1p(post.rank_score or 0) / math.log1p(self._MAX_RANK)
-
-            # 70 % freshness, 30 % engagement — newer posts win more often
-            base = freshness * 0.70 + engagement * 0.30
-
-            # Deterministic jitter [0.5, 1.5] based on the session seed and post ID
-            hash_input = f"{seed}_{post.id}".encode('utf-8')
-            post_hash = int(hashlib.md5(hash_input).hexdigest()[:8], 16)
-            jitter = 0.5 + (post_hash / 0xffffffff)
-
-            return base * jitter
-
-        def _rank(queryset):
-            posts = list(queryset)
-            if not posts:
-                return []
-            return sorted(posts, key=_score, reverse=True)
-
         # Unseen posts ALWAYS appear before already-seen ones
-        ordered_posts = _rank(unseen_qs) + _rank(seen_qs)
+        unseen_qs = base_qs.exclude(id__in=seen_post_ids).order_by('-created_at')
+        seen_qs   = base_qs.filter(id__in=seen_post_ids).order_by('-created_at')
+
+        ordered_posts = list(unseen_qs) + list(seen_qs)
 
         # ------------------------------------------------------------------
         # Paginate (maintaining the session parameters in the next URL)
