@@ -111,11 +111,13 @@ class Test01NewUserGetsNewestPosts(FeedBaseTestCase):
 # ---------------------------------------------------------------------------
 class Test02SeenPostsNotPrioritisedWhenUnseenExist(FeedBaseTestCase):
     def test_unseen_come_before_seen(self):
-        # Create 4 old posts, mark them seen
+        # Create 4 old posts, mark them seen BEFORE session start
         old_posts = [_make_post(self.author, self.level, created_offset_days=10 + i) for i in range(4)]
-        PostView.objects.bulk_create(
-            [PostView(user=self.viewer, post=p) for p in old_posts]
-        )
+        past_time = timezone.now() - timedelta(days=1)
+        
+        for p in old_posts:
+            pv = PostView.objects.create(user=self.viewer, post=p)
+            PostView.objects.filter(pk=pv.pk).update(viewed_at=past_time)
 
         # Create 2 new unseen posts
         new_posts = [_make_post(self.author, self.level) for _ in range(2)]
@@ -147,6 +149,8 @@ class Test03SecondPageReturnsDifferentPosts(FeedBaseTestCase):
 
         next_url = data1.get("next")
         self.assertIsNotNone(next_url, "Expected a next URL for page 2")
+        self.assertIn("session_start=", next_url)
+        self.assertIn("seed=", next_url)
 
         # Follow the next URL
         resp2 = self.client.get(next_url)
@@ -196,9 +200,10 @@ class Test06MixedPageUnseenAndSeen(FeedBaseTestCase):
     def test_partial_unseen_fills_with_seen(self):
         # 10 seen posts
         seen_posts = [_make_post(self.author, self.level, created_offset_days=10 + i) for i in range(10)]
-        PostView.objects.bulk_create(
-            [PostView(user=self.viewer, post=p) for p in seen_posts]
-        )
+        past_time = timezone.now() - timedelta(days=1)
+        for p in seen_posts:
+            pv = PostView.objects.create(user=self.viewer, post=p)
+            PostView.objects.filter(pk=pv.pk).update(viewed_at=past_time)
 
         # 3 unseen posts
         unseen_posts = [_make_post(self.author, self.level) for _ in range(3)]
@@ -223,9 +228,10 @@ class Test06MixedPageUnseenAndSeen(FeedBaseTestCase):
 class Test07AllSeenReturnsFallback(FeedBaseTestCase):
     def test_all_seen_returns_seen_fallback(self):
         posts = [_make_post(self.author, self.level) for _ in range(5)]
-        PostView.objects.bulk_create(
-            [PostView(user=self.viewer, post=p) for p in posts]
-        )
+        past_time = timezone.now() - timedelta(days=1)
+        for p in posts:
+            pv = PostView.objects.create(user=self.viewer, post=p)
+            PostView.objects.filter(pk=pv.pk).update(viewed_at=past_time)
 
         resp = self.client.get(FEED_URL)
         data = resp.json()
@@ -239,13 +245,12 @@ class Test07AllSeenReturnsFallback(FeedBaseTestCase):
 # ---------------------------------------------------------------------------
 class Test08NewPostsPrioritisedForExistingUsers(FeedBaseTestCase):
     def test_new_posts_appear_before_old_seen(self):
-        # Viewer has already seen 5 old posts
         old_posts = [_make_post(self.author, self.level, created_offset_days=20 + i) for i in range(5)]
-        PostView.objects.bulk_create(
-            [PostView(user=self.viewer, post=p) for p in old_posts]
-        )
+        past_time = timezone.now() - timedelta(days=1)
+        for p in old_posts:
+            pv = PostView.objects.create(user=self.viewer, post=p)
+            PostView.objects.filter(pk=pv.pk).update(viewed_at=past_time)
 
-        # Two brand-new posts published now
         new_posts = [_make_post(self.author, self.level) for _ in range(2)]
         new_ids = {str(p.id) for p in new_posts}
 
@@ -310,25 +315,20 @@ class Test11IndependentReadHistories(FeedBaseTestCase):
 
         post = _make_post(self.author, self.level)
 
-        # Mark seen only for viewer (not viewer_b)
         PostView.objects.create(user=self.viewer, post=post)
 
-        # viewer should see post in seen pool
         self.assertEqual(
             PostView.objects.filter(user=self.viewer, post=post).count(), 1
         )
-        # viewer_b has no view record
         self.assertEqual(
             PostView.objects.filter(user=viewer_b, post=post).count(), 0
         )
 
-        # viewer_b's feed call should mark the post as seen for them only
         client_b = APIClient()
         client_b.force_authenticate(user=viewer_b)
         client_b.get(FEED_URL)
 
         self.assertEqual(PostView.objects.filter(user=viewer_b, post=post).count(), 1)
-        # viewer's count is still 1 (unchanged)
         self.assertEqual(PostView.objects.filter(user=self.viewer, post=post).count(), 1)
 
 
@@ -357,7 +357,6 @@ class Test12ConcurrentRequestsNoDuplicates(FeedBaseTestCase):
 
         self.assertEqual(errors, [], f"Errors during concurrent requests: {errors}")
 
-        # Each post should have exactly one PostView row for this user
         from django.db.models import Count
         dupes = (
             PostView.objects
