@@ -6,13 +6,12 @@ from rest_framework.exceptions import PermissionDenied
 from django.db.models import Count, Case, When, IntegerField, FloatField, Value, F, Q, ExpressionWrapper
 from django.db.models.functions import Coalesce, Random, Now, Extract
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 
 from datetime import timedelta
 import random as _random
 import math
 import hashlib
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from django.utils.dateparse import parse_datetime
 
 from core.pagination import (
     PostFeedPagination,
@@ -22,116 +21,112 @@ from core.pagination import (
 from .serializers import (
     PostSerializer,
     PostFeedSerializer,
-    CommentSerializer,
-    ReactionSerializer,
-    CommentReactionSerializer,
+    CommentSerializer
 )
 from .models import (
     PostModel,
-    PostComment,
     PostReaction,
-    PostCommentReaction,
+    CommentModel,
+    CommentReaction,
     PostView,
-    PostNotInterested
+    PostNotInterested,
+    Notification,
+    FCMDevice,
 )
+from asgiref.sync import async_to_sync
+from core.utils import send_push_notification
 
-class PostLikeDislikeView(APIView):
+def emit_notification_to_socket(notif_instance):
+    try:
+        from messaging.socket import sio, user_sid_map
+        user_id = str(notif_instance.user.id)
+        recipient_sid = user_sid_map.get(user_id)
+        if recipient_sid:
+            payload = {
+                "id": notif_instance.id,
+                "title": notif_instance.title,
+                "description": notif_instance.description,
+                "date_time": notif_instance.created_at.isoformat(),
+                "isRead": notif_instance.is_read,
+            }
+            async_to_sync(sio.emit)("new_notification", payload, to=recipient_sid)
+    except Exception as e:
+        print("Failed to emit notification:", e)
+
+
+
+
+class PostDetailView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = PostModel.objects.all()
+    serializer_class = PostFeedSerializer
+    lookup_url_kwarg = 'post_id'
+
+    def get_queryset(self):
+        user = self.request.user
+        user_levels = user.math_levels.values_list("id", flat=True)
+        from messaging.models import BlockUser
+        from django.db.models import Q
+        blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
+        blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
+        return PostModel.objects.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).filter(
+            Q(classroom__isnull=False) | Q(post_level_id__in=user_levels) | Q(user=user)
+        )
+
+class PostUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PostSerializer
+    lookup_url_kwarg = 'post_id'
+
+    def get_queryset(self):
+        return PostModel.objects.filter(user=self.request.user)
+
+class PostCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, post_id):
-        user = request.user
-        action = request.data.get("action")
+    def post(self, request):
+        serializer = PostSerializer(
+            data=request.data, 
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"msg": "post saved successfully"},
+            status=status.HTTP_200_OK
+        )
 
-        if not action:
-            return Response(
-                {"error": "Action is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if action not in ["like", "dislike"]:
-            return Response(
-                {"error": "Invalid action. Choose 'like' or 'dislike'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            post = PostModel.objects.get(id=post_id)
-        except PostModel.DoesNotExist:
-            return Response(
-                {"error": "Post not found."}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        existing_reaction = PostReaction.objects.filter(post=post, user=user).first()
-
-        if existing_reaction:
-            if existing_reaction.reaction == action:
-                existing_reaction.delete()
-                return Response(
-                    {"message": f"Post {action} removed."}, status=status.HTTP_200_OK
-                )
-            else:
-                existing_reaction.reaction = action
-                existing_reaction.save()
-                return Response(
-                    {"message": f"Post {action}d successfully."},
-                    status=status.HTTP_200_OK,
-                )
-        else:
-            PostReaction.objects.create(post=post, user=user, reaction=action)
-            return Response(
-                {"message": f"Post {action}d successfully."},
-                status=status.HTTP_201_CREATED,
-            )
-
-class PostCommentLikeDislikeView(APIView):
+class PostDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "post_id"
 
-    def post(self, request, comment_id):
-        user = request.user
-        action = request.data.get("action")
+    def get_queryset(self):
+        return PostModel.objects.all()
 
-        if not action:
-            return Response(
-                {"error": "Action is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
+    def get_object(self):
+        obj = super().get_object()
 
-        if action not in ["like", "dislike"]:
-            return Response(
-                {"error": "Invalid action. Choose 'like' or 'dislike'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if obj.user != self.request.user:
+            raise PermissionDenied("You do not have permission to delete this post.")
 
-        try:
-            comment = PostComment.objects.get(id=comment_id)
-        except PostComment.DoesNotExist:
-            return Response(
-                {"error": "Comment not found."}, status=status.HTTP_404_NOT_FOUND
-            )
+        return obj
 
-        existing_reaction = PostCommentReaction.objects.filter(
-            comment=comment, user=user
-        ).first()
 
-        if existing_reaction:
-            if existing_reaction.reaction == action:
-                existing_reaction.delete()
-                return Response(
-                    {"message": f"Comment {action} removed."}, status=status.HTTP_200_OK
-                )
-            else:
-                existing_reaction.reaction = action
-                existing_reaction.save()
-                return Response(
-                    {"message": f"Comment {action}d successfully."},
-                    status=status.HTTP_200_OK,
-                )
-        else:
-            PostCommentReaction.objects.create(
-                comment=comment, user=user, reaction=action
-            )
-            return Response(
-                {"message": f"Comment {action}d successfully."},
-                status=status.HTTP_201_CREATED,
-            )
+class CommentDeleteView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "comment_id"
+
+    def get_queryset(self):
+        return CommentModel.objects.all()
+
+    def get_object(self):
+        obj = super().get_object()
+
+        if obj.user != self.request.user:
+            raise PermissionDenied("You do not have permission to delete this comment.")
+
+        return obj
+
 
 
 class SessionFeedPagination(PostFeedPagination):
@@ -366,3 +361,373 @@ class PostFeedView(APIView):
                 feed_data.insert(insert_idx, challenge_dict)
 
         return paginator.get_paginated_response(feed_data)
+
+class PostLikeDislikeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, post_id):
+        reaction_type = request.data.get('reaction')  
+
+        if reaction_type not in ['like', 'dislike']:
+            return Response(
+                {"error": "Invalid reaction type"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            post = PostModel.objects.get(id=post_id)
+        except PostModel.DoesNotExist:
+            return Response(
+                {"error": "Post not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if post.user == request.user:
+            return Response(
+                {"error": "You cannot react to your own post"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reaction, created = PostReaction.objects.get_or_create(
+            user=request.user,
+            post=post,
+            defaults={'reaction': reaction_type}
+        )
+
+        from administration.models import PointAdjustment
+        point_adj = PointAdjustment.objects.first()
+        upvote_points = point_adj.upvote_point if point_adj else 0
+
+        def adjust_points(target_user, amount):
+            if not target_user: return
+            if hasattr(target_user, 'account') and hasattr(target_user.account, 'student'):
+                student = target_user.account.student
+                if hasattr(student, 'progress'):
+                    student.progress.add_points(amount)
+
+        if not created:
+            if reaction.reaction == reaction_type:
+                reaction.delete()
+                message = f"{reaction_type} removed"
+                if reaction_type == 'like' and post.user and post.user.id != request.user.id:
+                    adjust_points(post.user, -upvote_points)
+            else:
+                old_reaction = reaction.reaction
+                reaction.reaction = reaction_type
+                reaction.save()
+                message = f"Changed reaction to {reaction_type}"
+                if post.user and post.user.id != request.user.id:
+                    if old_reaction == 'dislike' and reaction_type == 'like':
+                        adjust_points(post.user, upvote_points)
+                    elif old_reaction == 'like' and reaction_type == 'dislike':
+                        adjust_points(post.user, -upvote_points)
+        else:
+            message = f"{reaction_type} added"
+            if reaction_type == 'like' and post.user and post.user.id != request.user.id:
+                adjust_points(post.user, upvote_points)
+                notif = Notification.objects.create(
+                    user=post.user,
+                    title="New Like",
+                    description=f"{request.user.first_name or request.user.username} liked your post.",
+                    type="like",
+                    post_id=str(post.id)
+                )
+                emit_notification_to_socket(notif)
+                send_push_notification(
+                    user=post.user,
+                    title="New Like",
+                    body=f"{request.user.first_name or request.user.username} liked your post.",
+                    data={"type": "like", "post_id": str(post.id)}
+                )
+
+        # --- Badge checks for post author (like milestones) ---
+        if reaction_type == 'like' and post.user:
+            post_author = post.user
+            if hasattr(post_author, 'account') and hasattr(post_author.account, 'student'):
+                author_student = post_author.account.student
+                total_likes = PostReaction.objects.filter(
+                    post__user=post_author,
+                    reaction='like'
+                ).count()
+                from student.utils import award_badge_by_code
+                if total_likes >= 10:
+                    award_badge_by_code(author_student, 'likes_10')
+                if total_likes >= 50:
+                    award_badge_by_code(author_student, 'likes_50')
+                if total_likes >= 100:
+                    award_badge_by_code(author_student, 'likes_100')
+                if total_likes >= 200:
+                    award_badge_by_code(author_student, 'likes_200')
+                if total_likes >= 500:
+                    award_badge_by_code(author_student, 'likes_500')
+
+        return Response(
+            {"message": message},
+            status=status.HTTP_200_OK
+        )
+
+
+class CommentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            post = PostModel.objects.get(id=post_id)
+        except PostModel.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        user = request.user
+        if not post.classroom and post.post_level:
+            user_levels = user.math_levels.values_list("id", flat=True)
+            if post.post_level_id not in user_levels:
+                return Response({"error": "You do not have the required math level to respond to this post."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CommentSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        # Resolve parent comment from the request data (support multiple field names)
+        parent_id = (
+            request.data.get('parent')
+            or request.data.get('parent_comment')
+            or request.data.get('parent_id')
+        )
+        parent_comment = None
+        if parent_id:
+            try:
+                parent_comment = CommentModel.objects.get(id=parent_id, post=post)
+            except CommentModel.DoesNotExist:
+                pass  # If parent not found, save as top-level comment
+
+        comment = serializer.save(
+            user=request.user,
+            post=post,
+            language=request.user.language or 'en',
+            parent=parent_comment,
+        )
+
+        from .tasks import translate_comment_task
+        translate_comment_task.delay(str(comment.id))
+
+        if post.user and post.user.id != request.user.id and not parent_comment:
+            notif1 = Notification.objects.create(
+                user=post.user,
+                title="New Comment",
+                description=f"{request.user.first_name or request.user.username} commented on your post.",
+                type="comment",
+                post_id=str(post.id),
+                comment_id=str(comment.id)
+            )
+            emit_notification_to_socket(notif1)
+            send_push_notification(
+                user=post.user,
+                title="New Comment",
+                body=f"{request.user.first_name or request.user.username} commented on your post.",
+                data={"type": "comment", "post_id": str(post.id), "comment_id": str(comment.id)}
+            )
+        
+        if parent_comment and parent_comment.user and parent_comment.user.id != request.user.id:
+            notif2 = Notification.objects.create(
+                user=parent_comment.user,
+                title="New Reply",
+                description=f"{request.user.first_name or request.user.username} replied to your comment.",
+                type="reply",
+                post_id=str(post.id),
+                comment_id=str(comment.id)
+            )
+            emit_notification_to_socket(notif2)
+            send_push_notification(
+                user=parent_comment.user,
+                title="New Reply",
+                body=f"{request.user.first_name or request.user.username} replied to your comment.",
+                data={"type": "reply", "post_id": str(post.id), "comment_id": str(comment.id)}
+            )
+
+        # --- Badge checks for commenter ---
+        commenter = request.user
+        if hasattr(commenter, 'account') and hasattr(commenter.account, 'student'):
+            commenter_student = commenter.account.student
+            comment_count = CommentModel.objects.filter(user=commenter).count()
+            from student.utils import award_badge_by_code
+            if comment_count >= 50:
+                award_badge_by_code(commenter_student, 'top_commenter')
+            if comment_count >= 200:
+                award_badge_by_code(commenter_student, 'super_commenter')
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def get(self, request, post_id):
+        try:
+            post = PostModel.objects.get(id=post_id)
+        except PostModel.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        from messaging.models import BlockUser
+        user = request.user
+        blocked_users = BlockUser.objects.filter(blocker=user).values_list('blocked_user_id', flat=True)
+        blocking_users = BlockUser.objects.filter(blocked_user=user).values_list('blocker_id', flat=True)
+
+        comments = post.comments.exclude(user_id__in=blocked_users).exclude(user_id__in=blocking_users).order_by('created_at')
+        paginator = CommentPagination()
+        result_page = paginator.paginate_queryset(comments, request)
+        serializer = CommentSerializer(result_page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+class CommentReactionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, comment_id):
+        try:
+            comment = CommentModel.objects.get(id=comment_id)
+        except CommentModel.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if comment.user == request.user:
+            return Response({"error": "You cannot react to your own comment"}, status=status.HTTP_400_BAD_REQUEST)
+
+        reaction_type = request.data.get("reaction")
+        if reaction_type not in ["like", "dislike"]:
+            return Response({"error": "Invalid reaction type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        existing_reaction = CommentReaction.objects.filter(comment=comment, user=user).first()
+
+        from administration.models import PointAdjustment
+        point_adj = PointAdjustment.objects.first()
+        upvote_points = point_adj.upvote_point if point_adj else 0
+
+        def adjust_points(target_user, amount):
+            if not target_user: return
+            if hasattr(target_user, 'account') and hasattr(target_user.account, 'student'):
+                student = target_user.account.student
+                if hasattr(student, 'progress'):
+                    student.progress.add_points(amount)
+
+        if existing_reaction:
+            if existing_reaction.reaction == reaction_type:
+                existing_reaction.delete()
+                message = f"{reaction_type} removed"
+                if reaction_type == 'like' and comment.user and comment.user.id != request.user.id:
+                    adjust_points(comment.user, -upvote_points)
+            else:
+                old_reaction = existing_reaction.reaction
+                existing_reaction.reaction = reaction_type
+                existing_reaction.save()
+                message = f"Changed to {reaction_type}"
+                if comment.user and comment.user.id != request.user.id:
+                    if old_reaction == 'dislike' and reaction_type == 'like':
+                        adjust_points(comment.user, upvote_points)
+                    elif old_reaction == 'like' and reaction_type == 'dislike':
+                        adjust_points(comment.user, -upvote_points)
+        else:
+            CommentReaction.objects.create(comment=comment, user=user, reaction=reaction_type)
+            message = f"{reaction_type} added"
+            if reaction_type == 'like' and comment.user and comment.user.id != request.user.id:
+                adjust_points(comment.user, upvote_points)
+
+        like_count = comment.reactions.filter(reaction="like").count()
+        dislike_count = comment.reactions.filter(reaction="dislike").count()
+
+        return Response(
+            {
+                "message": message,
+                "like_count": like_count,
+                "dislike_count": dislike_count,
+                "user_reaction": reaction_type if "added" in message or "Changed" in message else None
+            }, status=status.HTTP_200_OK)
+
+
+class PostNotInterestedView(APIView):
+    """Mark a post as 'Not Interested' – excludes it from the user's feed."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            post = PostModel.objects.get(id=post_id)
+        except PostModel.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        obj, created = PostNotInterested.objects.get_or_create(
+            user=request.user,
+            post=post,
+        )
+        return Response(
+            {"msg": "Marked as not interested" if created else "Already marked"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class NotificationCountView(APIView):
+    """Returns the count of unread notifications."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        count = Notification.objects.filter(user=request.user, is_read=False).count()
+        return Response({"count": count, "likes": 0, "comments": 0})
+
+
+class MarkNotificationsSeenView(APIView):
+    """Mark all notifications or a single notification as seen."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        notification_id = request.data.get('notification_id')
+        if notification_id:
+            Notification.objects.filter(user=request.user, id=notification_id, is_read=False).update(is_read=True)
+            return Response({"msg": f"Notification {notification_id} marked as seen."}, status=status.HTTP_200_OK)
+
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({"msg": "Notifications marked as seen."}, status=status.HTTP_200_OK)
+
+
+class NotificationListViewAPI(APIView):
+    """Returns a list of notifications for the authenticated user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user)
+        data = []
+        for notif in notifications:
+            data.append({
+                "id": notif.id,
+                "title": notif.title,
+                "description": notif.description,
+                "type": notif.type,
+                "postId": notif.post_id,
+                "commentId": notif.comment_id,
+                "date_time": notif.created_at.isoformat(),
+                "isRead": notif.is_read,
+            })
+        return Response({"data": data}, status=status.HTTP_200_OK)
+
+
+class FCMDeviceRegistrationView(APIView):
+    """Register or update an FCM token for the user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get("token")
+        if not token:
+            return Response({"error": "Token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        device, created = FCMDevice.objects.get_or_create(user=request.user, token=token)
+        return Response({"msg": "Token registered successfully"}, status=status.HTTP_200_OK)
+from django.views.generic import TemplateView
+from django.shortcuts import get_object_or_404
+
+class PostShareRedirectView(TemplateView):
+    template_name = "post_share.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        post_id = self.kwargs.get('post_id')
+        post = get_object_or_404(PostModel, id=post_id)
+        
+        # We can extract title/description from the post object for Open Graph tags
+        context['post_id'] = post_id
+        context['post_title'] = "Post on Coyoote"
+        
+        # Truncate content for meta description
+        plain_text = post.text_content
+        context['post_description'] = plain_text[:200] + "..." if len(plain_text) > 200 else plain_text
+        return context
+
