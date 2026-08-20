@@ -235,11 +235,25 @@ class PostFeedView(APIView):
             )
         )
 
+        from django.db.models import Subquery, OuterRef, F
         # Unseen posts ALWAYS appear before already-seen ones
         unseen_qs = base_qs.exclude(id__in=seen_post_ids).order_by('-created_at')
-        seen_qs   = base_qs.filter(id__in=seen_post_ids).order_by('-created_at')
+        
+        seen_qs   = base_qs.filter(id__in=seen_post_ids).annotate(
+            user_view_count=Subquery(
+                PostView.objects.filter(user=user, post=OuterRef('pk')).values('view_count')[:1]
+            )
+        ).order_by('user_view_count', '-created_at')
 
-        ordered_posts = list(unseen_qs) + list(seen_qs)
+        # Add stability-preserving randomness using the session seed
+        seen_posts = list(seen_qs)
+        _random.seed(seed)
+        _random.shuffle(seen_posts)
+        # Stable sort by view count: posts with lower view counts stay at the top,
+        # but posts with the SAME view count are randomized because of the prior shuffle.
+        seen_posts.sort(key=lambda p: getattr(p, 'user_view_count', 0) or 1)
+
+        ordered_posts = list(unseen_qs) + seen_posts
 
         # ------------------------------------------------------------------
         # Paginate (maintaining the session parameters in the next URL)
@@ -251,11 +265,23 @@ class PostFeedView(APIView):
         all_time_seen = set(
             PostView.objects.filter(user=user).values_list("post_id", flat=True)
         )
+        
         new_views = [p for p in page if p.id not in all_time_seen]
+        seen_views = [p for p in page if p.id in all_time_seen]
+
         if new_views:
             PostView.objects.bulk_create(
-                [PostView(user=user, post=p) for p in new_views],
+                [PostView(user=user, post=p, view_count=1) for p in new_views],
                 ignore_conflicts=True,
+            )
+            
+        if seen_views:
+            PostView.objects.filter(
+                user=user, 
+                post_id__in=[p.id for p in seen_views]
+            ).update(
+                view_count=F('view_count') + 1,
+                viewed_at=timezone.now()
             )
 
         serializer = PostFeedSerializer(

@@ -237,7 +237,8 @@ class CommentReaction(models.Model):
 class PostView(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(PostModel, on_delete=models.CASCADE)
-    viewed_at = models.DateTimeField(auto_now_add=True)
+    viewed_at = models.DateTimeField(auto_now=True)
+    view_count = models.IntegerField(default=1)
 
     class Meta:
         unique_together = ("user", "post")
