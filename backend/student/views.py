@@ -352,14 +352,12 @@ class StudentDashboardView(APIView):
             })
 
         # -----------------------------
-        # Streaks (challenge-based + logins)
+        # Streaks (App Usage)
         # -----------------------------
-        challenge_dates = list(activity_map.keys())
         from account.models import DailyActivity
         login_dates = list(DailyActivity.objects.filter(student=student).values_list("date", flat=True))
         
-        all_active_dates = list(set(challenge_dates + login_dates))
-        current_streak, longest_streak = calculate_streaks(all_active_dates)
+        current_streak, longest_streak = calculate_streaks(login_dates)
 
         # -----------------------------
         # Level progression

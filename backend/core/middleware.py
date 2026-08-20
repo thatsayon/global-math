@@ -65,6 +65,20 @@ class DailyActivityMiddleware:
                         # Update the student's total points since it's a new day
                         progress = student.progress
                         progress.add_points(1)
+
+                        # Calculate app usage streaks and award badges
+                        from student.utils import calculate_streaks, award_badge_by_code
+                        login_dates = list(DailyActivity.objects.filter(student=student).values_list("date", flat=True))
+                        current_streak, _ = calculate_streaks(login_dates)
+                        
+                        if current_streak >= 7:
+                            award_badge_by_code(student, 'streak_7')
+                        if current_streak >= 10:
+                            award_badge_by_code(student, 'streak_10')
+                        if current_streak >= 30:
+                            award_badge_by_code(student, 'streak_30')
+                        if current_streak >= 100:
+                            award_badge_by_code(student, 'streak_100')
                     
                     # Set cache to expire at the end of the day (timeout=86400 is 24 hours)
                     cache.set(cache_key, True, timeout=86400)
