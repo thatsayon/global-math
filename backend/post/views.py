@@ -23,7 +23,6 @@ from .serializers import (
     PostSerializer,
     PostFeedSerializer,
     CommentSerializer,
-    CommentReplySerializer,
     ReactionSerializer,
     CommentReactionSerializer,
 )
@@ -32,7 +31,6 @@ from .models import (
     PostComment,
     PostReaction,
     PostCommentReaction,
-    PostCommentReply,
     PostView,
     PostNotInterested
 )
