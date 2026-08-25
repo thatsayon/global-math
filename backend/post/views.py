@@ -246,14 +246,35 @@ class PostFeedView(APIView):
         ).order_by('user_view_count', '-created_at')
 
         # Add stability-preserving randomness using the session seed
-        seen_posts = list(seen_qs)
         _random.seed(seed)
+        
+        unseen_posts = list(unseen_qs)
+        
+        def get_unseen_score(post):
+            age = (session_start - post.created_at).total_seconds() / 86400.0
+            age = max(0, age)
+            decay = 0.5 ** (age / self._HALF_LIFE)
+            
+            like_count = getattr(post, 'like_count', 0)
+            comment_count = getattr(post, 'comment_count', 0)
+            engagement = like_count + comment_count * 2
+            eng_weight = 1.0 + math.log1p(engagement)
+            
+            weight = decay * eng_weight
+            
+            r = _random.random()
+            if r == 0: r = 0.0001
+            return math.pow(r, 1.0 / weight)
+            
+        unseen_posts.sort(key=get_unseen_score, reverse=True)
+
+        seen_posts = list(seen_qs)
         _random.shuffle(seen_posts)
         # Stable sort by view count: posts with lower view counts stay at the top,
         # but posts with the SAME view count are randomized because of the prior shuffle.
         seen_posts.sort(key=lambda p: getattr(p, 'user_view_count', 0) or 1)
 
-        ordered_posts = list(unseen_qs) + seen_posts
+        ordered_posts = unseen_posts + seen_posts
 
         # ------------------------------------------------------------------
         # Paginate (maintaining the session parameters in the next URL)
