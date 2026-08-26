@@ -145,23 +145,40 @@ class SessionFeedPagination(PostFeedPagination):
 
     def get_next_link(self):
         from rest_framework.utils.urls import replace_query_param
+        from django.conf import settings
         import random as _r
 
         url = super().get_next_link()
 
+        # Helper: rewrite the scheme+host to always use the configured BASE_URL.
+        # request.build_absolute_uri() returns http:// when Django is behind an
+        # nginx/SSL-terminating proxy without SECURE_PROXY_SSL_HEADER set, which
+        # causes Flutter to follow an http:// redirect and lose its Auth header.
+        def _force_base_url(u):
+            base = getattr(settings, "BASE_URL", "").rstrip("/")
+            if not base:
+                return u
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(u)
+            correct = urlparse(base)
+            return urlunparse(parsed._replace(scheme=correct.scheme, netloc=correct.netloc))
+
         if url:
             # Normal mid-session next page — keep the same session context
+            url = _force_base_url(url)
             url = replace_query_param(url, "session_start", self.session_start_str)
             url = replace_query_param(url, "seed", self.seed_str)
             return url
 
-        # Last page — build a recycle URL: page=1, brand-new seed, no session_start
-        # The client will detect `is_recycled=true` in the response and show a
-        # "showing posts again" indicator if desired.
-        request = self.request
-        base_url = request.build_absolute_uri(request.path)
+        # Last page — build a recycle URL: page=1, brand-new seed, no session_start.
+        # The client detects `is_recycled=true` in the response and clears its list
+        # for a fresh shuffled feed.
+        from django.conf import settings as _s
+        base = getattr(_s, "BASE_URL", "").rstrip("/")
+        path = self.request.path
         new_seed = str(_r.random())
-        recycle_url = replace_query_param(base_url, "page", "1")
+        recycle_url = f"{base}{path}"
+        recycle_url = replace_query_param(recycle_url, "page", "1")
         recycle_url = replace_query_param(recycle_url, "seed", new_seed)
         # Deliberately omit session_start so the server resets the seen pool
         self._is_recycled = True
@@ -766,7 +783,16 @@ class FCMDeviceRegistrationView(APIView):
         if not token:
             return Response({"error": "Token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        device, created = FCMDevice.objects.get_or_create(user=request.user, token=token)
+        # Use update_or_create keyed on `token` (the unique field) so that:
+        #   - If the token is new, it gets created for this user.
+        #   - If the token already exists (even for another user — Firebase can
+        #     reassign tokens), the user field is updated to the current user.
+        # This avoids the UniqueViolation IntegrityError from get_or_create's
+        # SELECT-then-INSERT race condition.
+        FCMDevice.objects.update_or_create(
+            token=token,
+            defaults={"user": request.user},
+        )
         return Response({"msg": "Token registered successfully"}, status=status.HTTP_200_OK)
 from django.views.generic import TemplateView
 from django.shortcuts import get_object_or_404
