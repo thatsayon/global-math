@@ -131,8 +131,12 @@ class CommentDeleteView(generics.DestroyAPIView):
 
 class SessionFeedPagination(PostFeedPagination):
     """
-    Overrides get_next_link to append the session_start and seed to the next URL,
-    ensuring that the frozen session state is maintained across pagination requests.
+    Extends PostFeedPagination to:
+      1. Forward session_start + seed in every `next` URL so the scroll session
+         stays stable across pages.
+      2. On the LAST page (where PageNumberPagination would return next=null),
+         instead emit a "recycle" next URL pointing to page=1 with NO session_start
+         and a fresh seed — this starts a brand-new shuffle so the feed never ends.
     """
     def __init__(self, session_start_str, seed_str):
         super().__init__()
@@ -140,12 +144,33 @@ class SessionFeedPagination(PostFeedPagination):
         self.seed_str = seed_str
 
     def get_next_link(self):
+        from rest_framework.utils.urls import replace_query_param
+        import random as _r
+
         url = super().get_next_link()
+
         if url:
-            from rest_framework.utils.urls import replace_query_param
+            # Normal mid-session next page — keep the same session context
             url = replace_query_param(url, "session_start", self.session_start_str)
             url = replace_query_param(url, "seed", self.seed_str)
-        return url
+            return url
+
+        # Last page — build a recycle URL: page=1, brand-new seed, no session_start
+        # The client will detect `is_recycled=true` in the response and show a
+        # "showing posts again" indicator if desired.
+        request = self.request
+        base_url = request.build_absolute_uri(request.path)
+        new_seed = str(_r.random())
+        recycle_url = replace_query_param(base_url, "page", "1")
+        recycle_url = replace_query_param(recycle_url, "seed", new_seed)
+        # Deliberately omit session_start so the server resets the seen pool
+        self._is_recycled = True
+        return recycle_url
+
+    def get_paginated_response(self, data):
+        response = super().get_paginated_response(data)
+        response.data["is_recycled"] = getattr(self, "_is_recycled", False)
+        return response
 
 
 class PostFeedView(APIView):
