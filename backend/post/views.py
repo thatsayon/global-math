@@ -166,24 +166,41 @@ class PostFeedView(APIView):
         guarantees the random reshuffle is completely stable while scrolling.
       - Both parameters are passed via the `next` URL to maintain the session.
     """
+    # Weight multipliers per tier
+    _WEIGHT_UNSEEN     = 100.0
+    _WEIGHT_PASSIVE    = 10.0
+    _WEIGHT_INTERACTED = 1.0
+
     permission_classes = [permissions.IsAuthenticated]
 
-    _HALF_LIFE  = 5.0    # days — freshness halves every 5 days
-    _MAX_RANK   = 150.0  # approximate ceiling for engagement normalisation
+    @staticmethod
+    def _weighted_shuffle(posts, weights, rng):
+        """
+        Efraimidis–Spirakis weighted random permutation:
+          score = U^(1/w), sort descending.
+        Higher-weight posts appear near the top more often, but randomness
+        is preserved — the result is never purely deterministic.
+        """
+        scored = []
+        for post, w in zip(posts, weights):
+            w = max(w, 1e-9)
+            u = rng.random()
+            u = max(u, 1e-15)
+            scored.append((post, u ** (1.0 / w)))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [p for p, _ in scored]
 
     def get(self, request):
         user        = request.user
         user_levels = list(user.math_levels.values_list("id", flat=True))
 
         # ------------------------------------------------------------------
-        # Parse or initialize session parameters for pagination stability
+        # Parse or initialise session parameters
         # ------------------------------------------------------------------
         session_start_str = request.query_params.get("session_start")
         if session_start_str:
-            session_start = parse_datetime(session_start_str)
-            if not session_start:
-                session_start = timezone.now()
-                session_start_str = session_start.isoformat()
+            session_start = parse_datetime(session_start_str) or timezone.now()
+            session_start_str = session_start.isoformat()
         else:
             session_start = timezone.now()
             session_start_str = session_start.isoformat()
@@ -199,7 +216,12 @@ class PostFeedView(APIView):
             seed = _random.random()
             seed_str = str(seed)
 
-        # Freeze 'seen' tracking to before the session started
+        # Isolated RNG instance — never affects global random state
+        rng = _random.Random(seed)
+
+        # ------------------------------------------------------------------
+        # Pre-compute interaction sets (frozen to session start for stability)
+        # ------------------------------------------------------------------
         seen_post_ids = set(
             PostView.objects.filter(
                 user=user,
@@ -207,13 +229,27 @@ class PostFeedView(APIView):
             ).values_list("post_id", flat=True)
         )
 
+        reacted_post_ids = set(
+            PostReaction.objects.filter(user=user)
+            .values_list("post_id", flat=True)
+        )
+
+        commented_post_ids = set(
+            CommentModel.objects.filter(user=user)
+            .values_list("post_id", flat=True)
+        )
+
+        interacted_post_ids = reacted_post_ids | commented_post_ids
+
         from messaging.models import BlockUser
         blocked_users  = BlockUser.objects.filter(blocker=user).values_list("blocked_user_id", flat=True)
         blocking_users = BlockUser.objects.filter(blocked_user=user).values_list("blocker_id", flat=True)
         not_interested = PostNotInterested.objects.filter(user=user).values_list("post_id", flat=True)
 
+        from django.db.models import F
+
         # ------------------------------------------------------------------
-        # Base queryset — annotate engagement & relevance
+        # Base queryset
         # ------------------------------------------------------------------
         base_qs = (
             PostModel.objects
@@ -235,59 +271,65 @@ class PostFeedView(APIView):
             )
         )
 
-        from django.db.models import Subquery, OuterRef, F
-        # Unseen posts ALWAYS appear before already-seen ones
-        unseen_qs = base_qs.exclude(id__in=seen_post_ids).order_by('-created_at')
-        
-        seen_qs   = base_qs.filter(id__in=seen_post_ids).annotate(
-            user_view_count=Subquery(
-                PostView.objects.filter(user=user, post=OuterRef('pk')).values('view_count')[:1]
-            )
-        ).order_by('user_view_count', '-created_at')
-
-        # Add stability-preserving randomness using the session seed
-        _random.seed(seed)
-        
-        unseen_posts = list(unseen_qs)
-        
-        def get_unseen_score(post):
-            age = (session_start - post.created_at).total_seconds() / 86400.0
-            age = max(0, age)
-            decay = 0.5 ** (age / self._HALF_LIFE)
-            
-            like_count = getattr(post, 'like_count', 0)
-            comment_count = getattr(post, 'comment_count', 0)
-            engagement = like_count + comment_count * 2
-            eng_weight = 1.0 + math.log1p(engagement)
-            
-            weight = decay * eng_weight
-            
-            r = _random.random()
-            if r == 0: r = 0.0001
-            return math.pow(r, 1.0 / weight)
-            
-        unseen_posts.sort(key=get_unseen_score, reverse=True)
-
-        seen_posts = list(seen_qs)
-        _random.shuffle(seen_posts)
-        # Stable sort by view count: posts with lower view counts stay at the top,
-        # but posts with the SAME view count are randomized because of the prior shuffle.
-        seen_posts.sort(key=lambda p: getattr(p, 'user_view_count', 0) or 1)
-
-        ordered_posts = unseen_posts + seen_posts
+        all_posts = list(base_qs)
 
         # ------------------------------------------------------------------
-        # Paginate (maintaining the session parameters in the next URL)
+        # Bucket posts into three tiers
+        # ------------------------------------------------------------------
+        unseen_posts     = []
+        passive_posts    = []
+        interacted_posts = []
+
+        for post in all_posts:
+            pid = post.id
+            if pid not in seen_post_ids:
+                unseen_posts.append(post)
+            elif pid not in interacted_post_ids:
+                passive_posts.append(post)
+            else:
+                interacted_posts.append(post)
+
+        # ------------------------------------------------------------------
+        # Infinite-feed recycling:
+        # If the user has seen every post, recycle all posts as tier 2/3
+        # so the feed never runs out.
+        # ------------------------------------------------------------------
+        if not unseen_posts and not passive_posts:
+            passive_posts    = [p for p in all_posts if p.id not in interacted_post_ids]
+            interacted_posts = [p for p in all_posts if p.id in interacted_post_ids]
+
+        # ------------------------------------------------------------------
+        # Weighted-random shuffle within each tier
+        # ------------------------------------------------------------------
+        def engagement_boost(post):
+            likes    = getattr(post, 'like_count', 0) or 0
+            comments = getattr(post, 'comment_count', 0) or 0
+            return 1.0 + math.log1p(likes + comments * 1.5)
+
+        unseen_weights     = [self._WEIGHT_UNSEEN     * engagement_boost(p) for p in unseen_posts]
+        passive_weights    = [self._WEIGHT_PASSIVE    * engagement_boost(p) for p in passive_posts]
+        interacted_weights = [self._WEIGHT_INTERACTED * engagement_boost(p) for p in interacted_posts]
+
+        ordered_posts = (
+            self._weighted_shuffle(unseen_posts, unseen_weights, rng)
+            + self._weighted_shuffle(passive_posts, passive_weights, rng)
+            + self._weighted_shuffle(interacted_posts, interacted_weights, rng)
+        )
+
+        # ------------------------------------------------------------------
+        # Paginate (session params forwarded in the next URL)
         # ------------------------------------------------------------------
         paginator = SessionFeedPagination(session_start_str, seed_str)
         page = paginator.paginate_queryset(ordered_posts, request)
 
-        # Record which posts were seen for the first time (race condition safe)
+        # ------------------------------------------------------------------
+        # Record views (race-condition safe)
+        # ------------------------------------------------------------------
         all_time_seen = set(
             PostView.objects.filter(user=user).values_list("post_id", flat=True)
         )
-        
-        new_views = [p for p in page if p.id not in all_time_seen]
+
+        new_views  = [p for p in page if p.id not in all_time_seen]
         seen_views = [p for p in page if p.id in all_time_seen]
 
         if new_views:
@@ -295,10 +337,10 @@ class PostFeedView(APIView):
                 [PostView(user=user, post=p, view_count=1) for p in new_views],
                 ignore_conflicts=True,
             )
-            
+
         if seen_views:
             PostView.objects.filter(
-                user=user, 
+                user=user,
                 post_id__in=[p.id for p in seen_views]
             ).update(
                 view_count=F('view_count') + 1,
@@ -332,7 +374,7 @@ class PostFeedView(APIView):
             )
 
             if active_challenges and feed_data:
-                challenge = _random.choice(active_challenges)
+                challenge = rng.choice(active_challenges)
                 user_lang = getattr(request.user, "language", "en")
                 challenge_dict = {
                     "item_type": "challenge",
@@ -344,7 +386,7 @@ class PostFeedView(APIView):
                     "publishing_date": str(challenge.publishing_date),
                 }
                 insert_idx = (
-                    _random.randint(1, len(feed_data) - 1)
+                    rng.randint(1, len(feed_data) - 1)
                     if len(feed_data) > 2
                     else len(feed_data)
                 )
