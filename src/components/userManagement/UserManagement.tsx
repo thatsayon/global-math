@@ -149,7 +149,7 @@ const UserManagement: React.FC = () => {
                 value={roleFilter}
                 onValueChange={(v) => setRoleFilter(v as any)}
               >
-                <SelectTrigger className="min-h-11 w-80">
+                <SelectTrigger className="min-h-11 w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -170,7 +170,7 @@ const UserManagement: React.FC = () => {
                   setStatusFilter(v === "all" ? "all" : v === "true")
                 }
               >
-                <SelectTrigger className="min-h-11 w-80">
+                <SelectTrigger className="min-h-11 w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
