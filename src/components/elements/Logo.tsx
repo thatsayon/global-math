@@ -5,7 +5,7 @@ function Logo() {
   return (
     <div>
       <Image
-      src={"/logo.png"}
+      src={"/new_logo.png"}
       alt='Logo'
       width={150}
       height={50}
