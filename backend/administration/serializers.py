@@ -124,6 +124,7 @@ class ModerationUserSerializer(serializers.ModelSerializer):
 class ModerationSerializer(serializers.Serializer):
     top = ModerationTopSerializer()
     users = ModerationUserSerializer(many=True)
+    count = serializers.IntegerField(required=False)
 
 class PostAuthorSerializer(serializers.ModelSerializer):
     class Meta:

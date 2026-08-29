@@ -91,20 +91,27 @@ class UserManagementView(AdminBaseView, generics.ListAPIView):
     search_fields = ["username", "first_name", "last_name", "email"]
     filterset_fields = ["role", "is_banned"]
 
+class ModerationPagination(PageNumberPagination):
+    page_size = 10
+
 class ModerationView(AdminBaseView, APIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     search_fields = ["username", "first_name", "last_name", "email"]
     filterset_fields = ["is_banned", "role"]
 
     def get(self, request):
-        users = User.objects.all()
+        users = User.objects.all().order_by("-date_joined")
 
         for backend in list(self.filter_backends):
             users = backend().filter_queryset(self.request, users, self)
 
+        paginator = ModerationPagination()
+        paginated_users = paginator.paginate_queryset(users, request, view=self)
+
         data = {
             "top": {},
-            "users": users,
+            "users": paginated_users,
+            "count": paginator.page.paginator.count
         }
 
         serializer = ModerationSerializer(
