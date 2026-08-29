@@ -286,6 +286,7 @@ class ChallengeGenerationSerializer(serializers.Serializer):
     dificulty_level = serializers.IntegerField()
     subject = serializers.CharField()
     number_of_question = serializers.IntegerField()
+    description = serializers.CharField(required=False, allow_blank=True)
 
 
 class ChallengeQuestionInputSerializer(serializers.Serializer):

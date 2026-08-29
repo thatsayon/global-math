@@ -306,12 +306,13 @@ class ChallengeGenerationView(APIView):
             "grade": serializer.validated_data["dificulty_level"],
             "subject": serializer.validated_data["subject"],
             "count": serializer.validated_data["number_of_question"],
+            "description": serializer.validated_data.get("description", ""),
         }
 
         try:
             ai_response = requests.post(
                 f"{ai_base_url}/generate-question",
-                data=payload,          # 👈 THIS is form-data / x-www-form-urlencoded
+                json=payload,          # 👈 THIS is JSON
                 timeout=20
             )
         except requests.RequestException as e:
