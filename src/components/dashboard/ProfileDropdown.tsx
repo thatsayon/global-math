@@ -6,13 +6,39 @@ import { Button } from "../ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import Link from "next/link";
 import { useGetProfileQuery } from "@/store/slices/api/profileApiSlice";
+import { removeCookie } from "@/hooks/cookie";
+import { useState } from "react";
+import { toast } from "sonner";
+
+// The login screen is served from the app root, not /login
+const LOGIN_PATH = "/";
 
 const ProfileDropdown = () => {
   const { data: profile } = useGetProfileQuery();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const getInitials = () => {
     if (!profile) return "U";
     return `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "U";
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+
+    try {
+      const res = await fetch("/api/logout", { method: "POST" });
+      if (!res.ok) throw new Error("Logout request failed");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      toast.error("Could not reach the server, signing out locally");
+      // Fall back to clearing the cookies from the browser
+      removeCookie("access");
+      removeCookie("refresh");
+    }
+
+    // Hard navigation so the cached RTK Query / Redux state is dropped too
+    window.location.replace(LOGIN_PATH);
   };
 
   return (
@@ -38,12 +64,14 @@ const ProfileDropdown = () => {
             <span>Profile</span>
           </Link>
         </DropdownMenuItem>
-        <Link href={"/"}>
-        <DropdownMenuItem onClick={() => console.log('Logout')} className="cursor-pointer">
+        <DropdownMenuItem
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="cursor-pointer"
+        >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Logout</span>
+          <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
         </DropdownMenuItem>
-        </Link>
       </DropdownMenuContent>
     </DropdownMenu>
   );
