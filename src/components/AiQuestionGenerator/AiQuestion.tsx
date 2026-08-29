@@ -102,6 +102,7 @@ export default function AiQuestion() {
         dificulty_level: data.difficultyLevel,
         subject: data.subject,
         number_of_question: data.numberOfQuestions,
+        description: data.description,
       }).unwrap();
 
       setGeneratedQuestions(response.questions);

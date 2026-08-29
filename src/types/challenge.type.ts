@@ -20,6 +20,7 @@ export interface QuestionGenerationRequest {
   dificulty_level: number
   subject: string
   number_of_question: number
+  description?: string
 }
 
 export interface QuestionGenerationResponse {
