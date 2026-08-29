@@ -51,7 +51,7 @@ const ModerationTable = () => {
   const [unbanUser] = useUnbanUserMutation();
 
   const users = data?.users || [];
-  const totalUsers = data?.top.total_user || 0;
+  const totalUsers = data?.count || data?.top.total_user || 0;
   const itemsPerPage = 10;
   const totalPages = Math.ceil(totalUsers / itemsPerPage);
 

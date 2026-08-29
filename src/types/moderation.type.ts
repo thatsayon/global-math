@@ -19,6 +19,7 @@ export interface ModerationUser {
 export interface ModerationResponse {
   top: ModerationTopStats;
   users: ModerationUser[];
+  count?: number;
 }
 
 export interface BanUserRequest {
